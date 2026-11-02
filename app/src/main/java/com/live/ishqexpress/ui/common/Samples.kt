@@ -1,5 +1,9 @@
 package com.live.ishqexpress.ui.common
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import com.live.ishqexpress.ui.home.LiveCreator
 import com.live.ishqexpress.ui.home.sampleCreators
@@ -35,30 +39,108 @@ object Me {
 
 /* ---------- Gifts (13, 14) ---------- */
 
-enum class GiftCategory(val label: String) { Popular("Popular"), Lucky("Lucky"), Luxury("Luxury"), Ar("AR"), Party("Party") }
+/** Drawer tabs, Tango-style. Bag holds free gifts (e.g. lucky-gift winnings). */
+enum class GiftTab(val label: String) { Popular("Popular"), Lucky("Lucky"), Motion("Motion"), Ar("AR"), Exclusive("VIP"), Bag("Bag") }
 
-data class Gift(val id: Int, val emoji: String, val name: String, val coins: Int, val category: GiftCategory, val fullScreen: Boolean = false)
+/** How a gift plays on screen. */
+enum class GiftKind {
+    /** Side banner with combo counter. */
+    Classic,
+    /** Classic banner + a random luck multiplier for the sender. */
+    Lucky,
+    /** Full-screen motion effect (transparent video when an asset exists, else a drawn animation). */
+    Motion,
+    /** Effect anchored to the host's face. */
+    Ar,
+}
+
+/** Drawn fallback / style for motion gifts. */
+enum class MotionStyle { Car, Castle, Rocket, Dragon, Fireworks, Hearts, Portal }
+
+data class Gift(
+    val id: Int,
+    val emoji: String,
+    val name: String,
+    val coins: Int,
+    val tab: GiftTab,
+    val kind: GiftKind = GiftKind.Classic,
+    val motion: MotionStyle? = null,
+    /** Side-by-side alpha MP4 under assets/, e.g. "gifts/love_storm.mp4". */
+    val video: String? = null,
+    /** Minimum VIP tier needed to send, 0 = everyone. */
+    val vip: Int = 0,
+    /** Counts double in PK battles. */
+    val pkBoost: Boolean = false,
+) {
+    val fullScreen get() = kind == GiftKind.Motion
+}
 
 val sampleGifts = listOf(
-    Gift(1, "🌹", "Rose", 1, GiftCategory.Popular),
-    Gift(2, "❤️", "Heart", 5, GiftCategory.Popular),
-    Gift(3, "🍫", "Chocolate", 10, GiftCategory.Popular),
-    Gift(4, "🧸", "Teddy", 49, GiftCategory.Popular),
-    Gift(5, "💐", "Bouquet", 99, GiftCategory.Popular),
-    Gift(6, "💍", "Ring", 299, GiftCategory.Luxury),
-    Gift(7, "🏎️", "Sports car", 1_999, GiftCategory.Luxury, fullScreen = true),
-    Gift(8, "🏰", "Castle", 4_999, GiftCategory.Luxury, fullScreen = true),
-    Gift(9, "🚀", "Rocket", 9_999, GiftCategory.Luxury, fullScreen = true),
-    Gift(10, "🍀", "Lucky clover", 9, GiftCategory.Lucky),
-    Gift(11, "🎲", "Lucky dice", 19, GiftCategory.Lucky),
-    Gift(12, "🧧", "Red packet", 99, GiftCategory.Lucky),
-    Gift(13, "🦋", "Butterflies", 199, GiftCategory.Ar, fullScreen = true),
-    Gift(14, "👑", "Crown AR", 499, GiftCategory.Ar, fullScreen = true),
-    Gift(15, "🐉", "Dragon", 2_999, GiftCategory.Ar, fullScreen = true),
-    Gift(16, "🎉", "Party popper", 29, GiftCategory.Party),
-    Gift(17, "🪩", "Disco ball", 149, GiftCategory.Party),
-    Gift(18, "🎆", "Fireworks", 999, GiftCategory.Party, fullScreen = true),
+    Gift(1, "🌹", "Rose", 1, GiftTab.Popular),
+    Gift(2, "❤️", "Heart", 5, GiftTab.Popular),
+    Gift(3, "🍫", "Chocolate", 10, GiftTab.Popular),
+    Gift(4, "🧸", "Teddy", 49, GiftTab.Popular),
+    Gift(5, "💐", "Bouquet", 99, GiftTab.Popular),
+    Gift(6, "💍", "Ring", 299, GiftTab.Popular),
+    Gift(16, "🎉", "Party popper", 29, GiftTab.Popular),
+    Gift(19, "⚡", "PK Booster", 199, GiftTab.Popular, pkBoost = true),
+
+    Gift(10, "🍀", "Lucky clover", 9, GiftTab.Lucky, GiftKind.Lucky),
+    Gift(11, "🎲", "Lucky dice", 19, GiftTab.Lucky, GiftKind.Lucky),
+    Gift(12, "🧧", "Red packet", 99, GiftTab.Lucky, GiftKind.Lucky),
+    Gift(20, "🪙", "Gold coin", 49, GiftTab.Lucky, GiftKind.Lucky),
+    Gift(21, "🐱", "Lucky cat", 199, GiftTab.Lucky, GiftKind.Lucky),
+
+    Gift(22, "💗", "Love storm", 699, GiftTab.Motion, GiftKind.Motion, MotionStyle.Hearts, video = "gifts/love_storm.mp4"),
+    Gift(23, "🌀", "Galaxy portal", 1_499, GiftTab.Motion, GiftKind.Motion, MotionStyle.Portal, video = "gifts/galaxy_portal.mp4"),
+    Gift(7, "🏎️", "Sports car", 1_999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Car),
+    Gift(18, "🎆", "Fireworks", 999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Fireworks),
+    Gift(15, "🐉", "Dragon", 2_999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Dragon),
+    Gift(8, "🏰", "Castle", 4_999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Castle),
+    Gift(9, "🚀", "Rocket", 9_999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Rocket),
+
+    Gift(14, "👑", "Crown", 499, GiftTab.Ar, GiftKind.Ar),
+    Gift(13, "🦋", "Butterflies", 199, GiftTab.Ar, GiftKind.Ar),
+    Gift(24, "🐰", "Bunny ears", 99, GiftTab.Ar, GiftKind.Ar),
+    Gift(25, "😎", "Cool shades", 149, GiftTab.Ar, GiftKind.Ar),
+
+    Gift(26, "🦚", "Royal peacock", 3_999, GiftTab.Exclusive, GiftKind.Motion, MotionStyle.Fireworks, vip = 3),
+    Gift(27, "💎", "Diamond throne", 7_999, GiftTab.Exclusive, GiftKind.Motion, MotionStyle.Castle, vip = 6),
+    Gift(28, "🛥️", "Yacht", 14_999, GiftTab.Exclusive, GiftKind.Motion, MotionStyle.Car, vip = 9),
 )
+
+fun giftById(id: Int): Gift = sampleGifts.first { it.id == id }
+
+/** Who a gift goes to: the host, a party guest, or a PK opponent. */
+data class GiftTarget(val id: Int, val name: String, val avatarUrl: String)
+
+/**
+ * Demo wallet shared by every room so coins and Bag stay in sync while you move around the app.
+ * Replace with the wallet API; the server is the only source of truth for balances.
+ */
+object DemoWallet {
+    var coins by mutableIntStateOf(Me.coins)
+    /** giftId → count of free gifts in the Bag. */
+    val bag = mutableStateMapOf(1 to 30, 2 to 6, 4 to 1)
+}
+
+/**
+ * Lucky-gift odds. Expected return is below 1 and wins are paid as free Roses into the Bag,
+ * not coins — coin-in/coin-out would make this a real-money game (see the research doc).
+ */
+object LuckyDraw {
+    /** (multiplier, probability). Remaining probability = no win. */
+    val table = listOf(500 to 0.0001, 100 to 0.001, 50 to 0.003, 10 to 0.015, 5 to 0.03, 2 to 0.06, 1 to 0.10)
+
+    /** [roll] in [0, 1). Returns 0 for no win. */
+    fun multiplier(roll: Double): Int {
+        var acc = 0.0
+        for ((m, p) in table) { acc += p; if (roll < acc) return m }
+        return 0
+    }
+
+    val expectedReturn: Double get() = table.sumOf { (m, p) -> m * p }
+}
 
 /* ---------- Live chat ---------- */
 

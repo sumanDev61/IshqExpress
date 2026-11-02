@@ -162,6 +162,7 @@ fun IshqSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = if (dark) Color(0xFF17101F) else Canvas,
+        scrimColor = if (dark) Color.Black.copy(alpha = 0.12f) else androidx.compose.material3.BottomSheetDefaults.ScrimColor,
         contentColor = if (dark) Color.White else Ink,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {

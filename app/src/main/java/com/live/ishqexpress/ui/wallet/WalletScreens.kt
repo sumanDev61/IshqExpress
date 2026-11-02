@@ -48,7 +48,6 @@ import kotlinx.coroutines.delay
 @Composable
 fun CoinStoreScreen(onBack: () -> Unit) {
     val nav = LocalNav.current
-    var balance by rememberSaveable { mutableIntStateOf(Me.coins) }
     var checkout by remember { mutableStateOf<CoinPack?>(null) }
     var firstPurchase by rememberSaveable { mutableStateOf(true) }
 
@@ -60,7 +59,7 @@ fun CoinStoreScreen(onBack: () -> Unit) {
                         Text("My coins", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CoinIcon(30.dp); Spacer(Modifier.width(8.dp))
-                            AnimatedContent(balance, label = "bal") { Text(it.grouped(), style = MaterialTheme.typography.displaySmall, color = Color.White) }
+                            AnimatedContent(DemoWallet.coins, label = "bal") { Text(it.grouped(), style = MaterialTheme.typography.displaySmall, color = Color.White) }
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("Coins are used for gifts, tickets, private shows and subscriptions.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
@@ -115,7 +114,7 @@ fun CoinStoreScreen(onBack: () -> Unit) {
 
     checkout?.let { p ->
         CheckoutSheet(p, firstPurchase, onDismiss = { checkout = null }, onPaid = { total ->
-            balance += total; firstPurchase = false; checkout = null
+            DemoWallet.coins += total; firstPurchase = false; checkout = null
         })
     }
 }

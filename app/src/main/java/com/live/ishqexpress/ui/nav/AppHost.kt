@@ -115,7 +115,7 @@ import kotlinx.coroutines.launch
 /** Screens that open from the bottom (full-screen modal feel) rather than sliding in from the side. */
 private val modalScreens = setOf(
     Screen.LiveViewer, Screen.GoLiveSetup, Screen.IncomingCall, Screen.VideoCall,
-    Screen.GroupCall, Screen.PrivateShow, Screen.CreatePost, Screen.Match,
+    Screen.GroupCall, Screen.PrivateShow, Screen.CreatePost, Screen.Match, Screen.VideoParty, Screen.AudioRoom,
 )
 
 @Composable
@@ -184,6 +184,7 @@ private fun Render(dest: Dest) {
         Screen.LiveViewer -> LiveViewerScreen(startCreator = dest.arg, onClose = back)
         Screen.GoLiveSetup -> GoLiveSetupScreen(back)
         Screen.Broadcaster -> BroadcasterScreen(audioOnly = dest.arg == 1)
+        Screen.VideoParty -> com.live.ishqexpress.ui.party.VideoPartyRoom(host = null, isHost = true, active = true, onClose = back)
         Screen.Battle -> BattleScreen(opponent = dest.arg)
         Screen.DualBroadcast -> DualBroadcastScreen(partner = dest.arg)
         Screen.LiveSummary -> LiveSummaryScreen()

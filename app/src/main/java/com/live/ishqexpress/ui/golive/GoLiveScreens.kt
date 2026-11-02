@@ -38,6 +38,10 @@ import com.live.ishqexpress.ui.home.LiveMode
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.live.ishqexpress.ui.live.ChatFeed
 import com.live.ishqexpress.ui.live.GoalBar
+import com.live.ishqexpress.ui.live.SimulateRoom
+import com.live.ishqexpress.ui.live.meTarget
+import com.live.ishqexpress.ui.gifts.GiftEffectsLayer
+import com.live.ishqexpress.ui.gifts.GiftEffectsState
 import kotlinx.coroutines.delay
 
 /*
@@ -47,7 +51,7 @@ import kotlinx.coroutines.delay
  */
 
 private enum class LiveType(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Video("Video", Icons.Rounded.Videocam), Audio("Audio", Icons.Rounded.Mic), Party("Party", Icons.Rounded.Groups)
+    Video("Video", Icons.Rounded.Videocam), Party("Video party", Icons.Rounded.Groups), Audio("Chat party", Icons.Rounded.Mic)
 }
 
 /* ============================== 21 · Go Live setup ============================== */
@@ -68,7 +72,11 @@ fun GoLiveSetupScreen(onBack: () -> Unit) {
     LaunchedEffect(countdown) {
         if (countdown > 0) {
             delay(800)
-            if (countdown == 1) nav.replace(Screen.Broadcaster, if (LiveType.entries[type] == LiveType.Audio) 1 else 0) else countdown--
+            if (countdown == 1) when (LiveType.entries[type]) {
+                LiveType.Video -> nav.replace(Screen.Broadcaster, 0)
+                LiveType.Party -> nav.replace(Screen.VideoParty, 0)
+                LiveType.Audio -> nav.replace(Screen.AudioRoom, 0)
+            } else countdown--
         }
     }
 
@@ -287,27 +295,18 @@ fun BroadcasterScreen(audioOnly: Boolean) {
     var media by remember { mutableStateOf<String?>(null) }
     var premium by remember { mutableStateOf(false) }
     val comments = remember { mutableStateListOf<LiveComment>().apply { add(sampleLiveComments.first()) } }
-    val giftFeed = remember { mutableStateListOf<Pair<String, String>>() }
+    val effects = remember { GiftEffectsState() }
+    SimulateRoom(true, effects, listOf(meTarget()), comments, seed = 3) { e ->
+        diamonds += e.totalCoins / 2; goalProgress += e.totalCoins
+    }
 
     BackHandlerCompat { sheet = HostSheet.End }
 
     LaunchedEffect(Unit) {
-        var i = 0
         while (true) {
             delay(1000)
             seconds++
             viewers += (0..6).random()
-            if (seconds % 3 == 0) {
-                val v = sampleViewers[i % sampleViewers.size]
-                val c = sampleLiveComments[1 + i % (sampleLiveComments.size - 1)]
-                comments.add(c.copy(user = v.name, level = v.level))
-                if (c.gift != null) {
-                    val gained = 120 + i * 7
-                    diamonds += gained; goalProgress += gained * 2
-                    giftFeed.add(0, v.name to c.gift); if (giftFeed.size > 3) giftFeed.removeAt(3)
-                }
-                i++
-            }
         }
     }
 
@@ -317,6 +316,8 @@ fun BroadcasterScreen(audioOnly: Boolean) {
             audioOnly -> Box(Modifier.fillMaxSize().background(NightBrush), contentAlignment = Alignment.Center) { AudioPulse(Me.avatarUrl, mic) }
             else -> VideoBackdrop(photo(77, 900, 1600), brandPair)
         }
+
+        GiftEffectsLayer(effects, faceAnchor = androidx.compose.ui.geometry.Offset(0.5f, 0.3f))
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -357,15 +358,6 @@ fun BroadcasterScreen(audioOnly: Boolean) {
 
             Spacer(Modifier.weight(1f))
 
-            // Gift feed
-            Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                giftFeed.forEach { (who, g) ->
-                    Row(Modifier.clip(CircleShape).background(Brush.horizontalGradient(listOf(BrandPink.copy(alpha = 0.85f), Color.Transparent))).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("$who sent ", style = MaterialTheme.typography.labelMedium, color = Color.White)
-                        Text(g, fontSize = 20.sp)
-                    }
-                }
-            }
             Spacer(Modifier.height(6.dp))
             ChatFeed(comments, Modifier.padding(start = 12.dp, end = 80.dp).height(200.dp))
             Spacer(Modifier.height(8.dp))

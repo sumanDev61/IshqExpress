@@ -78,6 +78,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.live.ishqexpress.ui.common.CoinIcon
+import com.live.ishqexpress.ui.common.grouped
 import com.live.ishqexpress.ui.nav.LocalNav
 import com.live.ishqexpress.ui.nav.Screen
 import coil.compose.AsyncImage
@@ -163,7 +164,7 @@ private fun HomeTopBar(onAction: (String) -> Unit) {
         ) {
             CoinIcon(20.dp)
             Spacer(Modifier.width(5.dp))
-            Text("1,240", style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = Ink)
+            Text(com.live.ishqexpress.ui.common.DemoWallet.coins.grouped(), style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = Ink)
         }
         Spacer(Modifier.width(4.dp))
         TopIcon(Icons.Rounded.Search, "Search") { onAction("Search") }

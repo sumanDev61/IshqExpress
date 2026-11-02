@@ -3,7 +3,7 @@ package com.live.ishqexpress.ui.home
 import androidx.compose.ui.graphics.Color
 
 /** Placeholder content for the UI build. Replace with the feed API later. */
-enum class LiveMode(val label: String) { Solo("Live"), Pk("PK"), Party("Party"), Audio("Audio") }
+enum class LiveMode(val label: String) { Solo("Live"), Pk("PK"), Dual("Dual"), Party("Party"), Audio("Chat party") }
 
 data class LiveCreator(
     val id: Int,
@@ -41,7 +41,7 @@ val sampleCreators: List<LiveCreator> = listOf(
     LiveCreator(7, "Zoya Khan", "Lucknow", "🇮🇳", "#Ghazal", 4_508, 41, LiveMode.Party, distanceKm = 4.3, tint = tints[0]),
     LiveCreator(8, "Arjun Nair", "Kochi", "🇮🇳", "#Fitness", 2_190, 15, LiveMode.Solo, distanceKm = 9.2, tint = tints[2]),
     LiveCreator(9, "Priya Sharma", "Jaipur", "🇮🇳", "#Chat", 9_874, 32, LiveMode.Pk, verified = true, distanceKm = 1.9, tint = tints[1]),
-    LiveCreator(10, "Naina Gupta", "Indore", "🇮🇳", "#Comedy", 5_633, 29, LiveMode.Solo, distanceKm = 6.4, tint = tints[3]),
+    LiveCreator(10, "Naina Gupta", "Indore", "🇮🇳", "#Comedy", 5_633, 29, LiveMode.Dual, distanceKm = 6.4, tint = tints[3]),
     LiveCreator(11, "Dev Malhotra", "Chandigarh", "🇮🇳", "#Music", 1_388, 33, LiveMode.Audio, distanceKm = 11.0, tint = tints[4]),
     LiveCreator(12, "Riya Das", "Kolkata", "🇮🇳", "#Cooking", 3_902, 20, LiveMode.Solo, distanceKm = 12.7, tint = tints[5]),
 )

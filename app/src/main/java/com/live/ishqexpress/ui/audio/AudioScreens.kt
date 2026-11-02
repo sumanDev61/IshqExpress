@@ -49,7 +49,7 @@ fun AudioRoomsScreen(onBack: () -> Unit) {
     val filters = listOf("All", "Talk", "Music", "Shayari", "Games")
 
     Box(Modifier.fillMaxSize()) {
-        ScreenScaffold("Audio rooms", onBack, actions = { TopAction(Icons.Rounded.Search, "Search") { nav.push(Screen.Search) } }) {
+        ScreenScaffold("Chat party", onBack, actions = { TopAction(Icons.Rounded.Search, "Search") { nav.push(Screen.Search) } }) {
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filters) { f -> PillChip(f, filter == f, { filter = f }) }
             }
@@ -61,7 +61,7 @@ fun AudioRoomsScreen(onBack: () -> Unit) {
         }
         Box(
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 20.dp)
-        ) { SmallGradientButton("Start a room", { creating = true }, icon = Icons.Rounded.Mic, height = 50.dp) }
+        ) { SmallGradientButton("Start a party", { creating = true }, icon = Icons.Rounded.Mic, height = 50.dp) }
     }
     if (creating) CreateRoomSheet(onDismiss = { creating = false }, onCreate = { creating = false; nav.push(Screen.AudioRoom, 0) })
 }
@@ -114,7 +114,7 @@ private fun CreateRoomSheet(onDismiss: () -> Unit, onCreate: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var privacy by remember { mutableIntStateOf(0) }
     var tag by remember { mutableStateOf("Talk") }
-    IshqSheet(onDismiss, title = "Start an audio room") {
+    IshqSheet(onDismiss, title = "Start a chat party") {
         Column(Modifier.padding(horizontal = 20.dp)) {
             OutlinedTextField(
                 title, { if (it.length <= 50) title = it }, Modifier.fillMaxWidth(), label = { Text("Room title") },
@@ -147,116 +147,28 @@ private fun CreateRoomSheet(onDismiss: () -> Unit, onCreate: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            PrimaryButton("Start room", onCreate, enabled = title.isNotBlank(), leadingIcon = Icons.Rounded.Mic)
+            PrimaryButton("Start party", onCreate, enabled = title.isNotBlank(), leadingIcon = Icons.Rounded.Mic)
         }
     }
 }
 
-/* ------------------------------ 35 · Audio room ------------------------------ */
+/* ------------------------------ 35 · Audio room → Chat party ------------------------------ */
 
 @Composable
 fun AudioRoomScreen(roomId: Int, onLeave: () -> Unit) {
     DarkSystemBars()
-    val toast = LocalToast.current
     val room = sampleRooms.firstOrNull { it.id == roomId }
-        ?: AudioRoom(0, "${Me.name}'s room", 0, emptyList(), 0, "Talk")
-    val isHost = roomId == 0
-    var handRaised by remember { mutableStateOf(false) }
-    var onStage by remember { mutableStateOf(isHost) }
-    var muted by remember { mutableStateOf(!isHost) }
-    var speaking by remember { mutableIntStateOf(0) }
-    var gifts by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { while (true) { delay(1800); speaking = (speaking + 1) % 6 } }
-
-    Column(Modifier.fillMaxSize().background(NightBrush).statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlassButton(Icons.Rounded.KeyboardArrowDown, "Minimise", onLeave, size = 36.dp)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(room.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${room.tag} · ${room.listeners.compact()} listening", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f))
-            }
-            GlassButton(Icons.Rounded.Share, "Share", { toast("Room link copied") }, size = 36.dp)
-        }
-
-        // Speakers grid
-        val speakers: List<Pair<String, String>> = buildList {
-            if (onStage) add(Me.name to Me.avatarUrl)
-            room.speakers.forEach { add(creatorById(it).name.substringBefore(' ') to creatorById(it).imageUrl) }
-        }
-        val hostIndex = if (onStage && !isHost) 1 else 0
-        LazyVerticalGrid(
-            GridCells.Fixed(4),
-            Modifier.weight(1f).padding(horizontal = 12.dp),
-            contentPadding = PaddingValues(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            item(span = { GridItemSpan(maxLineSpan) }) { Text("On stage", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f)) }
-            itemsIndexed(speakers) { i, (name, url) ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box {
-                        AudioPulse(url, speaking = i == speaking && !(i == 0 && onStage && muted), size = 60.dp)
-                        if (i == hostIndex) Text("👑", fontSize = 14.sp, modifier = Modifier.align(Alignment.TopEnd))
-                        if ((i == 0 && onStage && muted) || i == 2) Icon(Icons.Rounded.MicOff, null, tint = Color.White, modifier = Modifier.align(Alignment.BottomEnd).size(20.dp).clip(CircleShape).background(LiveRed).padding(3.dp))
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(name, style = MaterialTheme.typography.labelMedium, color = Color.White, maxLines = 1)
-                    if (i == hostIndex || (i == 0 && onStage)) Text(if (i == hostIndex) "Host" else "You", style = MaterialTheme.typography.labelSmall, color = Gold)
-                }
-            }
-            if (speakers.size < 8) items(8 - speakers.size) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(60.dp).clip(CircleShape).border(1.5.dp, Color.White.copy(alpha = 0.25f), CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.EventSeat, null, tint = Color.White.copy(alpha = 0.35f))
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text("Empty", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.35f))
-                }
-            }
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("Listeners", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(top = 8.dp))
-            }
-            items(sampleViewers) { v ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Avatar(avatar(v.img), 48.dp)
-                    Spacer(Modifier.height(4.dp))
-                    Text(v.name, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
-                }
-            }
-        }
-
-        // Controls
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Leave quietly", style = MaterialTheme.typography.labelLarge, color = Color(0xFFFF6B8A),
-                modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onLeave).padding(horizontal = 18.dp, vertical = 12.dp)
-            )
-            Spacer(Modifier.weight(1f))
-            GlassButton(Icons.Rounded.CardGiftcard, "Gift", { gifts = true }, size = 46.dp)
-            Spacer(Modifier.width(10.dp))
-            if (onStage) {
-                GlassButton(if (muted) Icons.Rounded.MicOff else Icons.Rounded.Mic, "Mic", { muted = !muted }, size = 46.dp, highlighted = !muted)
-            } else {
-                GlassButton(Icons.Rounded.PanTool, "Raise hand", {
-                    handRaised = !handRaised
-                    toast(if (handRaised) "Hand raised — the host will invite you" else "Hand lowered")
-                }, size = 46.dp, highlighted = handRaised)
-            }
-        }
-    }
-
-    LaunchedEffect(handRaised) { if (handRaised) { delay(4000); handRaised = false; onStage = true; toast("You're on stage — tap the mic to talk") } }
-
-    if (gifts) IshqSheet({ gifts = false }, title = "Send a gift to the room", dark = true) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(sampleGifts.take(8)) { g ->
-                Column(Modifier.clip(RoundedCornerShape(14.dp)).clickable { gifts = false; toast("Sent ${g.name} ${g.emoji}") }.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(g.emoji, fontSize = 36.sp)
-                    Text(g.name, style = MaterialTheme.typography.labelSmall, color = Color.White)
-                    CoinAmount(g.coins, iconSize = 10.dp, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
+    if (room == null) {
+        com.live.ishqexpress.ui.party.ChatPartyRoom(
+            title = "${Me.name}'s party 🎶", host = com.live.ishqexpress.ui.live.meTarget(), roomId = 0,
+            isHost = true, active = true, onClose = onLeave, guests = emptyList(), listeners = 0
+        )
+    } else {
+        com.live.ishqexpress.ui.party.ChatPartyRoom(
+            title = room.title, host = creatorById(room.host).let { GiftTarget(it.id, it.name, it.imageUrl) },
+            roomId = room.id, isHost = false, active = true, onClose = onLeave,
+            guests = room.speakers.filter { it != room.host }.map { id -> creatorById(id).let { GiftTarget(it.id, it.name, it.imageUrl) } },
+            listeners = room.listeners
+        )
     }
 }

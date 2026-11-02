@@ -18,11 +18,12 @@ enum class Screen {
     LiveViewer,      // 10–20 (sheets inside)
     GoLiveSetup,     // 21–22
     Broadcaster,     // 23–25, 30, 31, 33 (sheets inside)
+    VideoParty,      // video party room you host (viewers reach parties via LiveViewer)
     Battle,          // 26–28
     DualBroadcast,   // 29
     LiveSummary,     // 32
     AudioRooms,      // 34, 36
-    AudioRoom,       // 35
+    AudioRoom,       // 35 chat party (arg 0 = your own room)
     Match,           // 37–38
     Feed,            // 39, 42
     CreatePost,      // 40

@@ -109,10 +109,10 @@ private fun ShortcutRow() {
     val nav = LocalNav.current
     data class Shortcut(val emoji: String, val label: String, val colors: List<Color>, val go: () -> Unit)
     val items = listOf(
-        Shortcut("🎙️", "Audio rooms", listOf(Color(0xFF8D5BEA), Color(0xFFC07BF0))) { nav.push(Screen.AudioRooms) },
+        Shortcut("🎙️", "Chat party", listOf(Color(0xFF8D5BEA), Color(0xFFC07BF0))) { nav.push(Screen.AudioRooms) },
+        Shortcut("🎥", "Video party", listOf(Color(0xFFFF9A8B), Color(0xFFC236D9))) { nav.push(Screen.LiveViewer, 3) },
         Shortcut("💘", "Match", listOf(Color(0xFFFF6FA5), Color(0xFFFF2E8B))) { nav.push(Screen.Match) },
-        Shortcut("📰", "Feed", listOf(Color(0xFFFF9A8B), Color(0xFFFF6A88))) { nav.push(Screen.Feed) },
-        Shortcut("🏆", "Top charts", listOf(Color(0xFFFFB020), Color(0xFFFF8C5A))) { nav.push(Screen.Leaderboards) },
+        Shortcut("⚔️", "PK", listOf(Color(0xFF3B6FE0), Color(0xFFFF2E8B))) { nav.push(Screen.LiveViewer, 2) },
     )
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items.forEach { s ->
