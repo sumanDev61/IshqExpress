@@ -1,0 +1,614 @@
+package com.live.ishqexpress.ui.home
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Diamond
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.live.ishqexpress.ui.common.CoinIcon
+import com.live.ishqexpress.ui.nav.LocalNav
+import com.live.ishqexpress.ui.nav.Screen
+import coil.compose.AsyncImage
+import com.live.ishqexpress.ui.components.BrandLogo
+import com.live.ishqexpress.ui.components.Wordmark
+import com.live.ishqexpress.ui.theme.BrandBrush
+import com.live.ishqexpress.ui.theme.BrandOrchid
+import com.live.ishqexpress.ui.theme.BrandPink
+import com.live.ishqexpress.ui.theme.Canvas
+import com.live.ishqexpress.ui.theme.Gold
+import com.live.ishqexpress.ui.theme.Hairline
+import com.live.ishqexpress.ui.theme.Ink
+import com.live.ishqexpress.ui.theme.InkSecondary
+import com.live.ishqexpress.ui.theme.InkTertiary
+import com.live.ishqexpress.ui.theme.LiveRed
+import com.live.ishqexpress.ui.theme.PinkTint
+import com.live.ishqexpress.ui.theme.SurfaceMuted
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private enum class FeedTab(val label: String) { ForYou("For You"), Following("Following"), Popular("Popular"), Nearby("Nearby") }
+
+@Composable
+fun HomeScreen() {
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    val onAction: (String) -> Unit = { what ->
+        when (what) {
+            "Wallet" -> nav.push(Screen.CoinStore)
+            "Search" -> nav.push(Screen.Search)
+            "Notifications" -> nav.push(Screen.Notifications)
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Canvas)
+            .statusBarsPadding()
+    ) {
+        HomeTopBar(onAction = onAction)
+        val pager = rememberPagerState { FeedTab.entries.size }
+        FeedTabs(selected = pager.currentPage, onSelect = { scope.launch { pager.animateScrollToPage(it) } })
+        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+        HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
+            FeedPage(
+                FeedTab.entries[page],
+                onCreator = { nav.push(Screen.LiveViewer, it.id) },
+                onPromo = { i ->
+                    when (i) {
+                        0 -> nav.push(Screen.News)
+                        1 -> nav.push(Screen.GoLiveSetup)
+                        else -> nav.push(Screen.DailyRewards)
+                    }
+                }
+            )
+        }
+    }
+}
+
+/* ------------------------------ Top bar ------------------------------ */
+
+@Composable
+private fun HomeTopBar(onAction: (String) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BrandLogo(34.dp)
+        Spacer(Modifier.width(8.dp))
+        Wordmark(21.sp)
+        Spacer(Modifier.weight(1f))
+        // Diamond balance
+        Row(
+            Modifier
+                .clip(CircleShape)
+                .background(PinkTint)
+                .clickable { onAction("Wallet") }
+                .padding(start = 6.dp, end = 10.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CoinIcon(20.dp)
+            Spacer(Modifier.width(5.dp))
+            Text("1,240", style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = Ink)
+        }
+        Spacer(Modifier.width(4.dp))
+        TopIcon(Icons.Rounded.Search, "Search") { onAction("Search") }
+        Box {
+            TopIcon(Icons.Outlined.NotificationsNone, "Notifications") { onAction("Notifications") }
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-10).dp, y = 10.dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Canvas)
+                    .padding(1.5.dp)
+                    .clip(CircleShape)
+                    .background(LiveRed)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopIcon(icon: ImageVector, desc: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Icon(icon, desc, tint = Ink, modifier = Modifier.size(24.dp)) }
+}
+
+/* ------------------------------ Tabs ------------------------------ */
+
+@Composable
+private fun FeedTabs(selected: Int, onSelect: (Int) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(FeedTab.entries.size) { i ->
+            val active = i == selected
+            val color by animateColorAsState(if (active) Ink else InkTertiary, label = "tab")
+            val barWidth by animateDpAsState(if (active) 18.dp else 0.dp, label = "bar")
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onSelect(i) }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    FeedTab.entries[i].label,
+                    style = if (active) MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp)
+                    else MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+                    color = color
+                )
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    Modifier
+                        .width(barWidth)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(BrandBrush.primary)
+                )
+            }
+        }
+    }
+}
+
+/* ------------------------------ Feed ------------------------------ */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FeedPage(tab: FeedTab, onCreator: (LiveCreator) -> Unit, onPromo: (Int) -> Unit) {
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(refreshing) { if (refreshing) { delay(1200); refreshing = false } }
+
+    val creators = remember(tab) {
+        when (tab) {
+            FeedTab.ForYou -> sampleCreators
+            FeedTab.Following -> sampleCreators.filter { it.verified } + sampleCreators.take(2)
+            FeedTab.Popular -> sampleCreators.sortedByDescending { it.viewers }
+            FeedTab.Nearby -> sampleCreators.sortedBy { it.distanceKm }
+        }.distinctBy { it.id }
+    }
+
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { refreshing = true }, modifier = Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            when (tab) {
+                FeedTab.ForYou -> {
+                    fullSpan { LiveNowRail(sampleCreators.filter { it.verified }, onCreator) }
+                    fullSpan { PromoCarousel(onPromo) }
+                    fullSpan { SectionTitle("Trending now", "🔥") }
+                }
+                FeedTab.Following -> fullSpan { FollowingHeader(creators.size) }
+                FeedTab.Popular -> fullSpan { SectionTitle("Top live this hour", "👑") }
+                FeedTab.Nearby -> fullSpan { NearbyHeader() }
+            }
+            itemsIndexed(creators, key = { _, c -> "${tab.name}-${c.id}" }) { index, creator ->
+                LiveTile(
+                    creator = creator,
+                    rank = if (tab == FeedTab.Popular && index < 3) index + 1 else null,
+                    showDistance = tab == FeedTab.Nearby,
+                    onClick = { onCreator(creator) }
+                )
+            }
+        }
+    }
+}
+
+private fun LazyGridScope.fullSpan(content: @Composable () -> Unit) =
+    item(span = { GridItemSpan(maxLineSpan) }) { content() }
+
+@Composable
+private fun SectionTitle(title: String, emoji: String, action: String? = "See all") {
+    Row(Modifier.padding(top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("$title ", style = MaterialTheme.typography.titleLarge, color = Ink)
+        Text(emoji, fontSize = 18.sp)
+        Spacer(Modifier.weight(1f))
+        if (action != null) {
+            Text(action, style = MaterialTheme.typography.titleSmall, color = BrandPink)
+            Icon(Icons.Rounded.ChevronRight, null, tint = BrandPink, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+/* Story-style rail of followed creators who are live */
+@Composable
+private fun LiveNowRail(creators: List<LiveCreator>, onCreator: (LiveCreator) -> Unit) {
+    Column {
+        Text("Live from people you follow", style = MaterialTheme.typography.titleSmall, color = InkSecondary)
+        Spacer(Modifier.height(12.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            items(creators, key = { it.id }) { c ->
+                Column(
+                    Modifier
+                        .width(68.dp)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCreator(c) },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(contentAlignment = Alignment.BottomCenter) {
+                        Box(
+                            Modifier
+                                .size(66.dp)
+                                .clip(CircleShape)
+                                .background(BrandBrush.deep)
+                                .padding(2.5.dp)
+                                .clip(CircleShape)
+                                .background(Canvas)
+                                .padding(2.5.dp)
+                                .clip(CircleShape)
+                                .background(Brush.linearGradient(c.tint))
+                        ) {
+                            AsyncImage(c.imageUrl, c.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        }
+                        Text(
+                            "LIVE",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                            color = Color.White,
+                            modifier = Modifier
+                                .offset(y = 6.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(BrandBrush.primary)
+                                .border(1.5.dp, Canvas, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        c.name.substringBefore(' '),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+    }
+}
+
+@Composable
+private fun PromoCarousel(onPromo: (Int) -> Unit) {
+    val pager = rememberPagerState { samplePromos.size }
+    LaunchedEffect(pager) {
+        while (true) {
+            delay(4000)
+            pager.animateScrollToPage((pager.currentPage + 1) % samplePromos.size)
+        }
+    }
+    Column {
+        HorizontalPager(pager, pageSpacing = 10.dp) { i ->
+            val p = samplePromos[i]
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(108.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Brush.linearGradient(p.colors))
+                    .clickable { onPromo(i) }
+            ) {
+                // decorative orbs
+                Box(Modifier.offset(x = 230.dp, y = (-40).dp).size(150.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)))
+                Box(Modifier.offset(x = 280.dp, y = 50.dp).size(110.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)))
+                Text(p.emoji, fontSize = 52.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 22.dp))
+                Column(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 18.dp, end = 110.dp)
+                ) {
+                    Text(p.title, style = MaterialTheme.typography.titleLarge, color = Color.White)
+                    Text(p.subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.88f))
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        p.cta,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = p.colors.first(),
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            repeat(samplePromos.size) { i ->
+                val active = pager.currentPage == i
+                val w by animateDpAsState(if (active) 16.dp else 6.dp, label = "dot")
+                Box(
+                    Modifier
+                        .width(w)
+                        .height(6.dp)
+                        .clip(CircleShape)
+                        .then(if (active) Modifier.background(BrandBrush.primary) else Modifier.background(Hairline))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FollowingHeader(count: Int) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(PinkTint)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LiveDot()
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("$count people you follow are live", style = MaterialTheme.typography.titleSmall, color = Ink)
+            Text("Jump in before the PK battle ends", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, tint = BrandPink)
+    }
+}
+
+@Composable
+private fun NearbyHeader() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .clip(CircleShape)
+                .background(SurfaceMuted)
+                .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.LocationOn, null, tint = BrandPink, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Jaipur, Rajasthan", style = MaterialTheme.typography.titleSmall, color = Ink)
+            Icon(Icons.Rounded.KeyboardArrowDown, null, tint = InkTertiary, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.weight(1f))
+        Text("Within 25 km", style = MaterialTheme.typography.bodySmall, color = InkTertiary)
+    }
+}
+
+/* ------------------------------ Live tile ------------------------------ */
+
+@Composable
+private fun LiveTile(creator: LiveCreator, rank: Int?, showDistance: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.78f)
+            .clip(shape)
+            .background(Brush.linearGradient(creator.tint))
+            .clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = creator.imageUrl,
+            contentDescription = creator.name,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        // Scrims for legibility
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.28f),
+                        0.22f to Color.Transparent,
+                        0.55f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.72f)
+                    )
+                )
+        )
+
+        // Top row: LIVE + mode, viewers
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LivePill()
+            if (creator.mode != LiveMode.Solo) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    creator.mode.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.White.copy(alpha = 0.22f))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.32f))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Visibility, null, tint = Color.White, modifier = Modifier.size(11.dp))
+                Spacer(Modifier.width(3.dp))
+                Text(creator.viewers.compact(), style = MaterialTheme.typography.labelSmall, color = Color.White)
+            }
+        }
+
+        if (rank != null) {
+            val medal = when (rank) { 1 -> Gold; 2 -> Color(0xFFB8C1CC); else -> Color(0xFFE59A62) }
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(y = (-18).dp)
+                    .padding(start = 8.dp)
+                    .size(28.dp)
+                    .shadow(6.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(medal)
+                    .border(2.dp, Color.White, CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Text("$rank", style = MaterialTheme.typography.labelMedium, color = Color.White) }
+        }
+
+        // Bottom: name + meta
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
+        ) {
+            if (creator.hot) {
+                Text(
+                    "🔥 Hot",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(BrandBrush.primary)
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    creator.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (creator.verified) {
+                    Spacer(Modifier.width(3.dp))
+                    Icon(Icons.Rounded.Verified, "Verified", tint = Color(0xFFFF7AB6), modifier = Modifier.size(14.dp))
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                if (showDistance) "${creator.flag} ${"%.1f".format(creator.distanceKm)} km · ${creator.city}"
+                else "${creator.flag} ${creator.tag}",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = Color.White.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun LivePill() {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(BrandBrush.primary)
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LiveDot(size = 5, color = Color.White)
+        Spacer(Modifier.width(4.dp))
+        Text("LIVE", style = MaterialTheme.typography.labelSmall, color = Color.White)
+    }
+}
+
+@Composable
+private fun LiveDot(size: Int = 8, color: Color = LiveRed) {
+    val t = rememberInfiniteTransition(label = "live")
+    val a by t.animateFloat(0.35f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "a")
+    Box(
+        Modifier
+            .size(size.dp)
+            .alpha(a)
+            .clip(CircleShape)
+            .background(color)
+    )
+}
