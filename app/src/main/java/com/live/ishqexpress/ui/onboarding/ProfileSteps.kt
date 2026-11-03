@@ -422,7 +422,7 @@ private data class PermissionItem(
 private val permissionItems = listOf(
     PermissionItem(Icons.Rounded.Videocam, "Camera", "Go live and join video calls with creators.", BrandPink, PinkTint),
     PermissionItem(Icons.Rounded.Mic, "Microphone", "Talk in audio rooms and live streams.", BrandViolet, VioletTint),
-    PermissionItem(Icons.Rounded.NotificationsActive, "Notifications", "Know when people you follow go live.", Color(0xFFF79009), Color(0xFFFFF4E5)),
+    PermissionItem(Icons.Rounded.NotificationsActive, "Notifications", "Know when people you follow go live.", Color(0xFFF79009), Color(0xFF3A2A10)),
 )
 
 @Composable

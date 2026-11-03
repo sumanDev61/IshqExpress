@@ -1,5 +1,9 @@
 package com.live.ishqexpress.ui.components
 
+import androidx.compose.ui.graphics.Brush
+import com.live.ishqexpress.ui.theme.neonBorder
+import com.live.ishqexpress.ui.theme.shine
+import androidx.compose.ui.draw.drawWithContent
 import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -119,11 +123,22 @@ fun PrimaryButton(
             .height(56.dp)
             .scale(scale)
             .then(
-                if (enabled) Modifier.shadow(10.dp, shape, ambientColor = BrandPink, spotColor = BrandPink)
+                if (enabled) Modifier.shadow(18.dp, shape, ambientColor = BrandPink, spotColor = com.live.ishqexpress.ui.theme.NeonViolet)
                 else Modifier
             )
             .clip(shape)
-            .then(if (enabled) Modifier.background(BrandBrush.primary) else Modifier.background(DisabledFill))
+            .then(
+                if (enabled) Modifier
+                    .background(Brush.horizontalGradient(listOf(com.live.ishqexpress.ui.theme.NeonPink, com.live.ishqexpress.ui.theme.BrandOrchid, com.live.ishqexpress.ui.theme.NeonViolet)))
+                    .drawWithContent {
+                        // Glossy 3D: bright top half, darker lip at the bottom
+                        drawContent()
+                        drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.32f), 0.48f to Color.White.copy(alpha = 0.06f), 0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.18f)))
+                    }
+                    .shine(periodMs = 4_200, alpha = 0.18f)
+                    .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.05f))), shape)
+                else Modifier.background(DisabledFill)
+            )
             .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -280,12 +295,13 @@ fun SelectableCard(
     content: @Composable () -> Unit,
 ) {
     val border by animateColorAsState(if (selected) BrandPink else Hairline, label = "border")
-    val bg by animateColorAsState(if (selected) com.live.ishqexpress.ui.theme.PinkTint else Canvas, label = "bg")
+    val bg by animateColorAsState(if (selected) com.live.ishqexpress.ui.theme.PinkTint else SurfaceMuted.copy(alpha = 0.7f), label = "bg")
     Box(
         modifier
+            .then(if (selected) Modifier.shadow(12.dp, RoundedCornerShape(16.dp), ambientColor = BrandPink, spotColor = BrandPink) else Modifier)
             .clip(RoundedCornerShape(16.dp))
             .background(bg)
-            .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(16.dp))
+            .then(if (selected) Modifier.neonBorder(RoundedCornerShape(16.dp)) else Modifier.border(1.dp, border, RoundedCornerShape(16.dp)))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { content() }

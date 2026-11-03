@@ -1,5 +1,9 @@
 package com.live.ishqexpress.ui.home
 
+import androidx.compose.material.icons.rounded.SlowMotionVideo
+
+import com.live.ishqexpress.ui.theme.*
+
 import com.live.ishqexpress.ui.theme.BrandViolet
 import com.live.ishqexpress.ui.common.IshqSheet
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -121,6 +125,7 @@ fun HomeScreen() {
             "Wallet" -> nav.push(Screen.CoinStore)
             "Search" -> nav.push(Screen.Search)
             "Notifications" -> nav.push(Screen.Notifications)
+            "Me" -> nav.push(Screen.Me)
         }
     }
 
@@ -143,6 +148,7 @@ fun HomeScreen() {
                     region = region,
                     onRegion = { showRegions = true },
                     onCreator = { nav.push(Screen.LiveViewer, it.id) },
+                    onShort = { nav.push(Screen.Shorts, it) },
                     onPromo = { i ->
                         when (i) {
                             0 -> nav.push(Screen.News)
@@ -204,34 +210,14 @@ private fun HomeTopBar(onAction: (String) -> Unit) {
         Spacer(Modifier.width(8.dp))
         Wordmark(21.sp)
         Spacer(Modifier.weight(1f))
-        // Diamond balance
-        Row(
-            Modifier
-                .clip(CircleShape)
-                .background(PinkTint)
-                .clickable { onAction("Wallet") }
-                .padding(start = 6.dp, end = 10.dp, top = 5.dp, bottom = 5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CoinIcon(20.dp)
-            Spacer(Modifier.width(5.dp))
-            Text(com.live.ishqexpress.ui.common.DemoWallet.coins.grouped(), style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = Ink)
-        }
-        Spacer(Modifier.width(4.dp))
         TopIcon(Icons.Rounded.Search, "Search") { onAction("Search") }
-        Box {
-            TopIcon(Icons.Outlined.NotificationsNone, "Notifications") { onAction("Notifications") }
-            Box(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-10).dp, y = 10.dp)
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(Canvas)
-                    .padding(1.5.dp)
-                    .clip(CircleShape)
-                    .background(LiveRed)
-            )
+        Spacer(Modifier.width(6.dp))
+        // Your profile (coins, wallet and settings live there)
+        Box(
+            Modifier.size(38.dp).shadow(10.dp, CircleShape, ambientColor = NeonPink, spotColor = NeonViolet)
+                .neonBorder(CircleShape, 2.dp).padding(2.5.dp).clip(CircleShape).clickable { onAction("Me") }
+        ) {
+            AsyncImage(com.live.ishqexpress.ui.common.Me.avatarUrl, "My profile", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().background(SurfaceMuted))
         }
     }
 }
@@ -298,6 +284,7 @@ private fun FeedPage(
     region: Int,
     onRegion: () -> Unit,
     onCreator: (LiveCreator) -> Unit,
+    onShort: (Int) -> Unit,
     onPromo: (Int) -> Unit,
     onMidPromo: (Int) -> Unit,
 ) {
@@ -343,12 +330,46 @@ private fun FeedPage(
                     onClick = { onCreator(creator) }
                 )
             }
+            // Short videos mixed in: one tile after every 3 lives, and a Shorts rail after the 6th live.
+            val shorts = com.live.ishqexpress.ui.shorts.ShortsStore.videos.filter { it.creator != 0 }
+            val mixShorts = tab != FeedTab.Following && shorts.isNotEmpty()
+            var shortIx = (tab.ordinal * 3) % shorts.size.coerceAtLeast(1)
             creators.forEachIndexed { index, creator ->
                 if (index == midAt) fullSpan { PromoCarousel(sampleMidPromos, onMidPromo) }
+                if (mixShorts && index == 6) fullSpan { ShortsRail(shorts, onShort) }
                 tile(index, creator)
+                if (mixShorts && index % 3 == 2) {
+                    val v = shorts[shortIx % shorts.size]; shortIx++
+                    item(key = "${tab.name}-short-${v.id}-$index") {
+                        com.live.ishqexpress.ui.shorts.ShortTile(v) { onShort(com.live.ishqexpress.ui.shorts.ShortsStore.videos.indexOf(v).coerceAtLeast(0)) }
+                    }
+                }
             }
             // Room so the last row is not hidden behind the floating follow pile.
             fullSpan { Spacer(Modifier.height(64.dp)) }
+        }
+    }
+}
+
+/** Horizontal strip of short videos inside the Home feed. */
+@Composable
+private fun ShortsRail(shorts: List<com.live.ishqexpress.ui.shorts.ShortVideo>, onShort: (Int) -> Unit) {
+    Column {
+        Row(Modifier.padding(top = 6.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.SlowMotionVideo, null, tint = NeonCyan, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(6.dp))
+            GradientText("Shorts for you", MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.weight(1f))
+            Text("See all", style = MaterialTheme.typography.titleSmall, color = BrandPink, modifier = Modifier.clickable { onShort(0) })
+            Icon(Icons.Rounded.ChevronRight, null, tint = BrandPink, modifier = Modifier.size(18.dp))
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(shorts.size) { i ->
+                val v = shorts[i]
+                Box(Modifier.width(118.dp)) {
+                    com.live.ishqexpress.ui.shorts.ShortTile(v) { onShort(com.live.ishqexpress.ui.shorts.ShortsStore.videos.indexOf(v).coerceAtLeast(0)) }
+                }
+            }
         }
     }
 }
@@ -479,6 +500,8 @@ private fun LiveTile(creator: LiveCreator, rank: Int?, showDistance: Boolean, on
         Modifier
             .fillMaxWidth()
             .aspectRatio(0.78f)
+            .tilt3D()
+            .shadow(14.dp, shape, ambientColor = creator.tint.last(), spotColor = creator.tint.last())
             .clip(shape)
             .background(Brush.linearGradient(creator.tint))
             .clickable(onClick = onClick)
@@ -553,6 +576,12 @@ private fun LiveTile(creator: LiveCreator, rank: Int?, showDistance: Boolean, on
             ) { Text("$rank", style = MaterialTheme.typography.labelMedium, color = Color.White) }
         }
 
+        // Glass edge (neon for hot lives) and a light sweep across hot tiles
+        Box(
+            Modifier.fillMaxSize()
+                .then(if (creator.hot) Modifier.neonBorder(shape, 2.dp).shine(3_200, 0.18f)
+                      else Modifier.border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.05f))), shape))
+        )
         // Bottom: name + meta
         Column(
             Modifier
@@ -635,9 +664,7 @@ private fun GlobalHeader(region: Int, onFilter: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = BrandViolet.copy(alpha = 0.12f), spotColor = BrandViolet.copy(alpha = 0.18f))
-            .clip(RoundedCornerShape(16.dp))
-            .background(Brush.horizontalGradient(listOf(Color.White, Color(0xFFFFF3F9), Color(0xFFF6EEFF))))
+            .glass(RoundedCornerShape(16.dp), elevation = 8.dp)
             .clickable(onClick = onFilter)
             .padding(start = 12.dp, end = 8.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically

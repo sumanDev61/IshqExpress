@@ -942,7 +942,7 @@ fun LiveSummaryScreen() {
         Spacer(Modifier.height(16.dp))
         val stats = listOf("1:12:48" to "Duration", "3,284" to "Viewers", "412" to "Peak", "18" to "New fans", "246" to "New followers", "7.4K" to "Likes")
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            GradientCard(Modifier.fillMaxWidth(), brush = Brush.linearGradient(listOf(Color(0xFFFFF2F8), Color(0xFFF3ECFF)))) {
+            GradientCard(Modifier.fillMaxWidth(), brush = Brush.linearGradient(listOf(Color(0xFF4A1645), Color(0xFF261747)))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     DiamondIcon(44.dp)
                     Spacer(Modifier.width(14.dp))

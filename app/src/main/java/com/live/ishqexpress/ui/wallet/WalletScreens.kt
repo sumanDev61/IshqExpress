@@ -127,18 +127,21 @@ private fun PackTile(p: CoinPack, firstPurchase: Boolean, modifier: Modifier, on
     val tag = if (!firstPurchase && p.tag?.startsWith("First") == true) null else p.tag
     Box(modifier) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(if (tag != null) PinkTint else SurfaceMuted)
-                .border(if (tag != null) 1.5.dp else 0.dp, if (tag != null) BrandPink else Color.Transparent, RoundedCornerShape(18.dp))
-                .clickable(onClick = onClick).padding(vertical = 18.dp),
+            Modifier.fillMaxWidth().tilt3D()
+                .then(if (tag != null) Modifier.glass(RoundedCornerShape(18.dp), glow = BrandPink, elevation = 14.dp).neonBorder(RoundedCornerShape(18.dp))
+                      else Modifier.glass(RoundedCornerShape(18.dp)))
+                .clickable(onClick = onClick).padding(top = 14.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(when { p.coins >= 7_000 -> "💰"; p.coins >= 1_400 -> "🪙🪙"; else -> "🪙" }, fontSize = 28.sp)
-            Spacer(Modifier.height(6.dp))
+            val tier = when { p.coins >= 7_000 -> 5; p.coins >= 3_500 -> 4; p.coins >= 1_400 -> 3; p.coins >= 350 -> 2; else -> 1 }
+            CoinStack3D(tier, Modifier.size(70.dp).floating(3.dp, 2_000 + tier * 300))
+            Spacer(Modifier.height(4.dp))
             CoinAmount(if (doubled) p.coins * 2 else p.coins, iconSize = 16.dp, style = MaterialTheme.typography.titleLarge)
             if (p.bonus > 0 || doubled) Text(if (doubled) "×2 first purchase" else "+${p.bonus.grouped()} bonus", style = MaterialTheme.typography.labelMedium, color = BrandPink)
             else Text(" ", style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(10.dp))
-            Text(p.price, style = MaterialTheme.typography.labelLarge, color = Color.White, modifier = Modifier.clip(CircleShape).background(BrandBrush.primary).padding(horizontal = 18.dp, vertical = 6.dp))
+            Text(p.price, style = MaterialTheme.typography.labelLarge, color = Color.White, modifier = Modifier.shadow(8.dp, CircleShape, spotColor = BrandPink).clip(CircleShape).background(BrandBrush.primary)
+                .drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent)) }.padding(horizontal = 18.dp, vertical = 6.dp))
         }
         if (tag != null) Text(tag, style = MaterialTheme.typography.labelSmall, color = Color.White, modifier = Modifier.align(Alignment.TopCenter).offset(y = (-8).dp).clip(CircleShape).background(BrandBrush.deep).padding(horizontal = 8.dp, vertical = 3.dp))
     }
@@ -309,10 +312,10 @@ fun VipScreen(onBack: () -> Unit) {
                     var coupon by com.live.ishqexpress.data.rememberIntPref("coupon", 0)
                     listOf(Triple(6, "+6% coins", "Any pack · 3 days left"), Triple(10, "+10% coins", "₹1,799+ · 6 days left")).forEach { (pct, a, b) ->
                         val on = coupon == pct
-                        Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFFFF4DA), Color(0xFFFFE6B0))))
-                            .then(if (on) Modifier.border(2.dp, Color(0xFFB06A00), RoundedCornerShape(14.dp)) else Modifier)
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF5A3C0A), Color(0xFF2A1A06))))
+                            .then(if (on) Modifier.border(2.dp, Color(0xFFFFC14D), RoundedCornerShape(14.dp)) else Modifier)
                             .clickable { coupon = pct; toast("Coupon $a applied — buy any pack"); nav.push(Screen.CoinStore) }.padding(14.dp)) {
-                            Text(a, style = MaterialTheme.typography.titleMedium, color = Color(0xFFB06A00))
+                            Text(a, style = MaterialTheme.typography.titleMedium, color = Color(0xFFFFC14D))
                             Text(if (on) "Selected · used on next purchase" else b, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                         }
                     }
@@ -663,7 +666,7 @@ fun LeaderboardsScreen(onBack: () -> Unit) {
         UnderlineTabs(listOf("Top creators", "Top gifters"), board, { board = it }, dark = true)
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).padding(3.dp)) {
             listOf("Hourly", "Daily", "Weekly", "Monthly").forEachIndexed { i, p ->
-                Text(p, style = MaterialTheme.typography.labelMedium, color = if (period == i) Ink else Color.White.copy(alpha = 0.75f), textAlign = TextAlign.Center,
+                Text(p, style = MaterialTheme.typography.labelMedium, color = if (period == i) Color(0xFF1A1029) else Color.White.copy(alpha = 0.75f), textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f).clip(CircleShape).then(if (period == i) Modifier.background(Color.White) else Modifier).clickable { period = i }.padding(vertical = 8.dp))
             }
         }

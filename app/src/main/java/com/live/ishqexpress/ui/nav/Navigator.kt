@@ -65,6 +65,8 @@ enum class Screen {
     Replay,          // arg = creator id
     AgencyStatement, // arg = month index
     OfficialTalent,
+    Shorts,          // full-screen short videos (arg = start index)
+    Me,              // your profile (opened from the avatar on Home)
 }
 
 /** [arg] carries a single id (creator, post, room, conversation) or a tab index. */

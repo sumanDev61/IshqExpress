@@ -69,7 +69,7 @@ fun AudioRoomsScreen(onBack: () -> Unit) {
 @Composable
 private fun RoomCard(r: AudioRoom, onClick: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(0xFFFFF2F8), Color(0xFFF3ECFF)))).clickable(onClick = onClick).padding(16.dp)
+        Modifier.fillMaxWidth().tilt3D().glass(RoundedCornerShape(20.dp), glow = BrandPink).clickable(onClick = onClick).padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(r.tag.uppercase(), style = MaterialTheme.typography.labelSmall, color = BrandOrchid)

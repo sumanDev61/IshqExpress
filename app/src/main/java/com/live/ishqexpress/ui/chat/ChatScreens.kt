@@ -55,7 +55,6 @@ fun ChatsScreen() {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Messages", style = MaterialTheme.typography.headlineSmall, color = Ink, modifier = Modifier.weight(1f))
             TopAction(Icons.Rounded.Groups, "Group call") { nav.push(Screen.GroupCall) }
-            TopAction(Icons.Outlined.NotificationsNone, "Notifications") { nav.push(Screen.Notifications) }
             TopAction(Icons.Rounded.EditNote, "New message") { nav.push(Screen.Search) }
         }
         val chats = sampleConversations.filter { !it.request }
@@ -76,6 +75,7 @@ fun ChatsScreen() {
                         }
                     }
                 }
+                item { OfficialNotificationsRow { nav.push(Screen.Notifications) } }
                 item {
                     MenuRow(Icons.Rounded.SupportAgent, "ishqexpress Team", subtitle = "Welcome! Tap for safety tips and support", iconTint = Color.White, iconBg = BrandPink, onClick = { nav.push(Screen.Help) })
                 }
@@ -86,6 +86,41 @@ fun ChatsScreen() {
                 }
                 items(requests, key = { it.id }) { c -> ConversationRow(c) { nav.push(Screen.ChatThread, c.id) } }
             }
+        }
+    }
+}
+
+/** Pinned chat at the top of Messages: every notification (lives, gifts, follows, system) lands here. */
+@Composable
+private fun OfficialNotificationsRow(onClick: () -> Unit) {
+    val store = com.live.ishqexpress.ui.social.NotifStore
+    val unread = store.unread
+    val last = store.latest
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).glass(RoundedCornerShape(18.dp), glow = BrandPink, elevation = 8.dp)
+            .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box {
+            Bubble3D(Ramps.live, Modifier.size(54.dp), CircleShape, elevation = 10.dp) { BubbleGlyph(Icons.Rounded.NotificationsActive, 28.dp) }
+            Icon(Icons.Rounded.Verified, null, tint = NeonCyan, modifier = Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(Canvas).padding(1.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Official Notifications", style = MaterialTheme.typography.titleSmall, color = Ink)
+                Spacer(Modifier.width(6.dp))
+                Text("OFFICIAL", style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp), color = Color.White,
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(BrandBrush.neon).padding(horizontal = 4.dp, vertical = 1.dp))
+            }
+            Text(last?.text ?: "You're all caught up", style = MaterialTheme.typography.bodyMedium, color = if (unread > 0) Ink else InkSecondary,
+                fontWeight = if (unread > 0) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(last?.time ?: "", style = MaterialTheme.typography.bodySmall, color = if (unread > 0) BrandPink else InkTertiary)
+            Spacer(Modifier.height(4.dp))
+            if (unread > 0) Text("$unread", style = MaterialTheme.typography.labelSmall, color = Color.White, modifier = Modifier.clip(CircleShape).background(BrandBrush.primary).padding(horizontal = 7.dp, vertical = 2.dp))
         }
     }
 }
@@ -219,9 +254,9 @@ private fun Bubble(m: Message, translate: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
         val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (m.mine) 18.dp else 4.dp, bottomEnd = if (m.mine) 4.dp else 18.dp)
         when {
-            m.gift != null -> Column(Modifier.clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFFFFE3F0), Color(0xFFEDE0FF)))).padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(m.gift, fontSize = 44.sp)
-                Text(if (m.mine) "You sent a gift" else "Sent you a gift", style = MaterialTheme.typography.labelSmall, color = BrandPinkDark)
+            m.gift != null -> Column(Modifier.clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF5A1850), Color(0xFF2E1A5C)))).border(1.dp, Brush.linearGradient(listOf(NeonPink.copy(alpha = 0.6f), NeonViolet.copy(alpha = 0.3f))), RoundedCornerShape(18.dp)).padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(m.gift, fontSize = 44.sp, modifier = Modifier.floating(3.dp))
+                Text(if (m.mine) "You sent a gift" else "Sent you a gift", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFA8D4))
             }
             m.image != null || m.imageUrl != null -> AsyncImage(m.imageUrl ?: photo(m.image ?: 0, 400, 500), null, contentScale = ContentScale.Crop, modifier = Modifier.width(200.dp).aspectRatio(0.8f).clip(RoundedCornerShape(18.dp)))
             else -> Column(

@@ -514,12 +514,19 @@ fun NewsScreen(onBack: () -> Unit) {
 
 /* ============================== 44 · Notifications ============================== */
 
+/** All notifications, shared by the Messages inbox (unread badge) and the Official Notifications chat. */
+object NotifStore {
+    val list by lazy { androidx.compose.runtime.mutableStateListOf(*sampleNotifs.toTypedArray()) }
+    val unread get() = list.count { it.unread }
+    val latest get() = list.firstOrNull()
+}
+
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
     val nav = LocalNav.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val notifs = remember { mutableStateListOf(*sampleNotifs.toTypedArray()) }
-    ScreenScaffold("Notifications", onBack, actions = {
+    val notifs = NotifStore.list
+    ScreenScaffold("Official Notifications", onBack, actions = {
         TopAction(Icons.Rounded.DoneAll, "Mark all read") { notifs.replaceAll { it.copy(unread = false) } }
     }) {
         UnderlineTabs(listOf("All", "Live", "Gifts", "Social"), tab, { tab = it })

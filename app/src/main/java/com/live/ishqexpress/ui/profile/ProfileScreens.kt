@@ -51,7 +51,7 @@ import com.live.ishqexpress.ui.social.PostCard
 /* ============================== 52 · My profile ============================== */
 
 @Composable
-fun MyProfileScreen() {
+fun MyProfileScreen(onBack: (() -> Unit)? = null) {
     val nav = LocalNav.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showQr by remember { mutableStateOf(false) }
@@ -59,16 +59,30 @@ fun MyProfileScreen() {
     LazyColumn(Modifier.fillMaxSize().appBackground()) {
         item {
             Box(Modifier.fillMaxWidth()) {
-                Box(Modifier.fillMaxWidth().height(190.dp).background(BrandBrush.deep)) {
-                    Box(Modifier.align(Alignment.TopEnd).offset(60.dp, (-40).dp).size(200.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)))
+                Box(
+                    Modifier.fillMaxWidth().height(230.dp)
+                        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            // Fade the banner out so it melts into the night canvas
+                            drawRect(Brush.verticalGradient(0.45f to Color.Black, 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                        }
+                        .background(BrandBrush.deep)
+                ) {
+                    Box(Modifier.align(Alignment.TopEnd).offset(60.dp, (-40).dp).size(200.dp).floating(6.dp, 4_000).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)))
+                    Box(Modifier.align(Alignment.CenterStart).offset((-50).dp, 0.dp).size(140.dp).floating(5.dp, 3_200).clip(CircleShape).background(NeonCyan.copy(alpha = 0.14f)))
+                    Sparkles(count = 7)
                 }
                 Row(Modifier.statusBarsPadding().fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+                    if (onBack != null) { TopAction(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Color.White, onClick = onBack); Spacer(Modifier.weight(1f)) }
                     TopAction(Icons.Rounded.QrCode2, "My QR", tint = Color.White) { showQr = true }
                     TopAction(Icons.Outlined.Settings, "Settings", tint = Color.White) { nav.push(Screen.Settings) }
                 }
                 Column(Modifier.padding(top = 120.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box {
-                        Avatar(Me.avatarUrl, 104.dp, Modifier.border(4.dp, Canvas, CircleShape))
+                        Box(Modifier.size(104.dp).shadow(22.dp, CircleShape, ambientColor = NeonPink, spotColor = NeonViolet).neonBorder(CircleShape, 3.dp).padding(3.dp)) {
+                            Avatar(Me.avatarUrl, 98.dp)
+                        }
                         Icon(Icons.Rounded.Edit, "Edit", tint = Color.White, modifier = Modifier.align(Alignment.BottomEnd).size(30.dp).clip(CircleShape).background(BrandPink).border(2.dp, Canvas, CircleShape).clickable { nav.push(Screen.EditProfile) }.padding(6.dp))
                     }
                     Spacer(Modifier.height(10.dp))
@@ -93,8 +107,8 @@ fun MyProfileScreen() {
         // Wallet
         item {
             Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                WalletTile("Coins", DemoWallet.coins, false, "Recharge", Modifier.weight(1f), listOf(Color(0xFFFFF4DA), Color(0xFFFFE6B0))) { nav.push(Screen.CoinStore) }
-                WalletTile("Diamonds", Me.diamonds, true, "Withdraw", Modifier.weight(1f), listOf(Color(0xFFFFE3F0), Color(0xFFEDE0FF))) { nav.push(Screen.Earnings) }
+                WalletTile("Coins", DemoWallet.coins, false, "Recharge", Modifier.weight(1f), listOf(Color(0xFF5A3C0A), Color(0xFF2A1A06))) { nav.push(Screen.CoinStore) }
+                WalletTile("Diamonds", Me.diamonds, true, "Withdraw", Modifier.weight(1f), listOf(Color(0xFF5A1850), Color(0xFF2A1A55))) { nav.push(Screen.Earnings) }
             }
         }
         // Shortcuts grid
@@ -156,7 +170,12 @@ fun MyProfileScreen() {
 
 @Composable
 private fun WalletTile(label: String, amount: Int, diamond: Boolean, cta: String, modifier: Modifier, colors: List<Color>, onClick: () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(colors)).clickable(onClick = onClick).padding(14.dp)) {
+    Column(
+        modifier.tilt3D().shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = colors.first(), spotColor = if (diamond) BrandPink else Gold)
+            .clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(colors))
+            .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.3f), Color.White.copy(alpha = 0.04f))), RoundedCornerShape(18.dp))
+            .shine(4_500, 0.14f).clickable(onClick = onClick).padding(14.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (diamond) DiamondIcon(22.dp) else CoinIcon(22.dp)
             Spacer(Modifier.width(6.dp))
@@ -164,7 +183,7 @@ private fun WalletTile(label: String, amount: Int, diamond: Boolean, cta: String
         }
         Spacer(Modifier.height(6.dp))
         Text(amount.grouped(), style = MaterialTheme.typography.headlineSmall, color = Ink)
-        Text("$cta ›", style = MaterialTheme.typography.labelMedium, color = if (diamond) BrandPink else Color(0xFFD08000))
+        Text("$cta ›", style = MaterialTheme.typography.labelMedium, color = if (diamond) Color(0xFFFF8CC6) else Color(0xFFFFC14D))
     }
 }
 
@@ -679,7 +698,7 @@ fun CreatorLevelScreen(onBack: () -> Unit) {
                 val state = when { lv < current -> 0; lv == current -> 1; else -> 2 }
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .background(if (state == 1) Color(0xFFE6F8F0) else if (state == 0) SurfaceMuted else Canvas)
+                        .background(if (state == 1) Color(0xFF0F3A2A) else if (state == 0) SurfaceMuted else Canvas)
                         .border(if (state == 1) 1.5.dp else 1.dp, if (state == 1) Success else Hairline, RoundedCornerShape(16.dp)).padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

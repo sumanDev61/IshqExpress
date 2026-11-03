@@ -1,5 +1,7 @@
 package com.live.ishqexpress.ui.onboarding
 
+import com.live.ishqexpress.ui.theme.*
+
 import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -316,9 +318,7 @@ private fun HeroCollage(modifier: Modifier) {
 private fun FloatingChip(modifier: Modifier, content: @Composable () -> Unit) {
     Row(
         modifier
-            .shadow(12.dp, CircleShape, spotColor = BrandOrchid)
-            .clip(CircleShape)
-            .background(Color.White)
+            .glass(CircleShape, glow = BrandOrchid, elevation = 12.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) { content() }

@@ -1,5 +1,10 @@
 package com.live.ishqexpress.ui.nav
 
+import androidx.compose.material.icons.rounded.SlowMotionVideo
+
+import com.live.ishqexpress.ui.theme.*
+import androidx.compose.ui.geometry.Offset
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -254,12 +259,14 @@ internal fun Render(dest: Dest) {
         Screen.Replay -> com.live.ishqexpress.ui.more.ReplayPlayerScreen(creatorId = dest.arg, onBack = back)
         Screen.AgencyStatement -> com.live.ishqexpress.ui.more.AgencyStatementScreen(month = dest.arg, onBack = back)
         Screen.OfficialTalent -> com.live.ishqexpress.ui.more.OfficialTalentScreen(back)
+        Screen.Shorts -> com.live.ishqexpress.ui.shorts.ShortsScreen(startIndex = dest.arg, onBack = back)
+        Screen.Me -> MyProfileScreen(onBack = back)
     }
 }
 
 /* ============================== Main tabs ============================== */
 
-private enum class Tab { Home, Explore, Chats, Me }
+private enum class Tab { Home, Shorts, Explore, Chats }
 
 @Composable
 internal fun MainShell(initialTab: Int = 0) {
@@ -273,7 +280,7 @@ internal fun MainShell(initialTab: Int = 0) {
                 Tab.Home -> HomeScreen()
                 Tab.Explore -> ExploreScreen()
                 Tab.Chats -> ChatsScreen()
-                Tab.Me -> MyProfileScreen()
+                Tab.Shorts -> com.live.ishqexpress.ui.shorts.ShortsScreen()
             }
         }
         BottomBar(
@@ -292,12 +299,14 @@ private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit, onGoLive: () -> Un
             Modifier
                 .padding(top = 16.dp)
                 .fillMaxWidth()
-                .shadow(18.dp, barShape, ambientColor = BrandPink.copy(alpha = 0.35f), spotColor = BrandViolet.copy(alpha = 0.55f))
+                .shadow(24.dp, barShape, ambientColor = BrandPink.copy(alpha = 0.5f), spotColor = BrandViolet)
                 .clip(barShape)
-                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFFFF5FA))))
+                .background(Brush.verticalGradient(listOf(Color(0xFF2A1748).copy(alpha = 0.97f), Color(0xFF12081F))))
                 .drawBehind {
-                    // Brand hairline along the top edge.
-                    drawRect(Brush.horizontalGradient(listOf(BrandPink.copy(alpha = 0.0f), BrandPink.copy(alpha = 0.55f), BrandViolet.copy(alpha = 0.55f), BrandViolet.copy(alpha = 0f))), size = Size(size.width, 1.dp.toPx()))
+                    // Neon rim along the top edge and a soft glow under the Go Live orb.
+                    drawRect(Brush.horizontalGradient(listOf(NeonPink.copy(alpha = 0f), NeonPink.copy(alpha = 0.9f), NeonViolet.copy(alpha = 0.9f), NeonCyan.copy(alpha = 0.7f), NeonCyan.copy(alpha = 0f))), size = Size(size.width, 1.5.dp.toPx()))
+                    drawCircle(Brush.radialGradient(listOf(BrandPink.copy(alpha = 0.28f), Color.Transparent), Offset(size.width / 2, 0f), size.width * 0.3f), size.width * 0.3f, Offset(size.width / 2, 0f))
+                    drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.06f), 0.4f to Color.Transparent))
                 }
                 .navigationBarsPadding()
                 .height(66.dp)
@@ -305,12 +314,12 @@ private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit, onGoLive: () -> Un
             verticalAlignment = Alignment.CenterVertically
         ) {
             NavItem(Icons.Rounded.Home, "Home", Ramps.home, selected == Tab.Home, Modifier.weight(1f)) { onSelect(Tab.Home) }
-            NavItem(Icons.Rounded.Explore, "Explore", Ramps.explore, selected == Tab.Explore, Modifier.weight(1f)) { onSelect(Tab.Explore) }
+            NavItem(Icons.Rounded.SlowMotionVideo, "Shorts", Ramps.shorts, selected == Tab.Shorts, Modifier.weight(1f)) { onSelect(Tab.Shorts) }
             Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
                 FitText("Go Live", MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, brush = BrandBrush.text), Modifier.padding(bottom = 5.dp))
             }
-            NavItem(Icons.Rounded.ChatBubble, "Messages", Ramps.chats, selected == Tab.Chats, Modifier.weight(1f), badge = 3) { onSelect(Tab.Chats) }
-            NavItem(Icons.Rounded.Person, "Me", Ramps.me, selected == Tab.Me, Modifier.weight(1f)) { onSelect(Tab.Me) }
+            NavItem(Icons.Rounded.Explore, "Explore", Ramps.explore, selected == Tab.Explore, Modifier.weight(1f)) { onSelect(Tab.Explore) }
+            NavItem(Icons.Rounded.ChatBubble, "Messages", Ramps.chats, selected == Tab.Chats, Modifier.weight(1f), badge = 3 + com.live.ishqexpress.ui.social.NotifStore.unread) { onSelect(Tab.Chats) }
         }
         GoLiveOrb(onGoLive, Modifier.align(Alignment.TopCenter).offset(y = (-10).dp))
     }
@@ -331,7 +340,7 @@ private fun GoLiveOrb(onClick: () -> Unit, modifier: Modifier = Modifier) {
         )
         Bubble3D(
             Ramps.live,
-            Modifier.size(56.dp).border(3.dp, Color.White, CircleShape).clickable(onClick = onClick),
+            Modifier.size(56.dp).border(3.dp, Brush.linearGradient(listOf(Color.White, NeonCyan.copy(alpha = 0.8f))), CircleShape).shine(2_600, 0.3f).clickable(onClick = onClick),
             shape = CircleShape, elevation = 14.dp
         ) { BubbleGlyph(Icons.Rounded.Videocam, 28.dp, "Go live") }
     }
@@ -371,7 +380,7 @@ private fun NavItem(
                         .shadow(3.dp, CircleShape, spotColor = LiveRed)
                         .clip(CircleShape)
                         .background(Brush.verticalGradient(listOf(Color(0xFFFF6B88), LiveRed)))
-                        .border(1.5.dp, Color.White, CircleShape)
+                        .border(1.5.dp, Canvas, CircleShape)
                         .padding(horizontal = 5.dp, vertical = 1.dp)
                 )
             }

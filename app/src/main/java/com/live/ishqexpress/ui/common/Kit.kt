@@ -1,6 +1,9 @@
 package com.live.ishqexpress.ui.common
 
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import com.live.ishqexpress.ui.theme.glass
+import com.live.ishqexpress.ui.theme.shine
 import androidx.compose.ui.draw.shadow
 import com.live.ishqexpress.ui.theme.appBackground
 import android.app.Activity
@@ -93,10 +96,7 @@ fun DarkSystemBars() {
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         controller?.isAppearanceLightStatusBars = false
         controller?.isAppearanceLightNavigationBars = false
-        onDispose {
-            controller?.isAppearanceLightStatusBars = true
-            controller?.isAppearanceLightNavigationBars = true
-        }
+        onDispose {} // the whole app is dark, so icons stay white
     }
 }
 
@@ -164,12 +164,22 @@ fun IshqSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = if (dark) Color(0xFF17101F) else Canvas,
-        scrimColor = if (dark) Color.Black.copy(alpha = 0.12f) else androidx.compose.material3.BottomSheetDefaults.ScrimColor,
+        containerColor = if (dark) Color(0xFF140B22).copy(alpha = 0.96f) else Color(0xFF150B26),
+        scrimColor = if (dark) Color.Black.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.55f),
+        dragHandle = { SheetHandle() },
         contentColor = if (dark) Color.White else Ink,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .drawBehind {
+                    // Neon rim along the top and a soft violet glow behind the content.
+                    drawRect(Brush.horizontalGradient(listOf(Color.Transparent, com.live.ishqexpress.ui.theme.NeonPink.copy(alpha = 0.7f), com.live.ishqexpress.ui.theme.NeonViolet.copy(alpha = 0.7f), com.live.ishqexpress.ui.theme.NeonCyan.copy(alpha = 0.5f), Color.Transparent)), size = androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx()), topLeft = androidx.compose.ui.geometry.Offset(0f, -28.dp.toPx()))
+                    drawCircle(Brush.radialGradient(listOf(BrandViolet.copy(alpha = 0.22f), Color.Transparent), androidx.compose.ui.geometry.Offset(size.width * 0.8f, 0f), size.width * 0.7f), size.width * 0.7f, androidx.compose.ui.geometry.Offset(size.width * 0.8f, 0f))
+                    drawCircle(Brush.radialGradient(listOf(BrandPink.copy(alpha = 0.14f), Color.Transparent), androidx.compose.ui.geometry.Offset(0f, size.height * 0.6f), size.width * 0.6f), size.width * 0.6f, androidx.compose.ui.geometry.Offset(0f, size.height * 0.6f))
+                }
+                .navigationBarsPadding().padding(bottom = 12.dp)
+        ) {
             if (title != null) {
                 Text(
                     title,
@@ -181,6 +191,15 @@ fun IshqSheet(
             content()
         }
     }
+}
+
+/** Glowing pill used as the sheet drag handle. */
+@Composable
+private fun SheetHandle() {
+    Box(
+        Modifier.padding(vertical = 10.dp).width(42.dp).height(5.dp).clip(CircleShape)
+            .background(Brush.horizontalGradient(listOf(com.live.ishqexpress.ui.theme.NeonPink, com.live.ishqexpress.ui.theme.NeonViolet, com.live.ishqexpress.ui.theme.NeonCyan)))
+    )
 }
 
 /* ============================== Avatars & badges ============================== */
@@ -199,7 +218,7 @@ fun Avatar(
             Modifier
                 .size(size)
                 .clip(CircleShape)
-                .then(if (ring || live) Modifier.background(BrandBrush.deep).padding(2.dp).clip(CircleShape).background(Canvas).padding(2.dp) else Modifier)
+                .then(if (ring || live) Modifier.background(com.live.ishqexpress.ui.theme.BrandBrush.neon).padding(2.dp).clip(CircleShape).background(Canvas).padding(2.dp) else Modifier)
                 .clip(CircleShape)
                 .background(SurfaceMuted)
         ) {
@@ -316,28 +335,13 @@ fun LiveDot(size: Int = 8, color: Color = LiveRed) {
 
 /* ============================== Currency ============================== */
 
-/** Coins — what viewers buy and spend. */
+/** Coins — what viewers buy and spend. Drawn as a glossy 3D gold coin. */
 @Composable
-fun CoinIcon(size: Dp = 16.dp) {
-    Box(
-        Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(Brush.linearGradient(listOf(Color(0xFFFFD25A), Gold, Color(0xFFF08A00)))),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("C", fontSize = (size.value * 0.55f).sp, fontWeight = FontWeight.Black, color = Color.White)
-    }
-}
+fun CoinIcon(size: Dp = 16.dp) = Coin3D(size)
 
-/** Diamonds — what creators earn. */
+/** Diamonds — what creators earn. Drawn as a faceted 3D gem. */
 @Composable
-fun DiamondIcon(size: Dp = 16.dp) {
-    Box(
-        Modifier.size(size).clip(CircleShape).background(BrandBrush.primary),
-        contentAlignment = Alignment.Center
-    ) { Icon(Icons.Rounded.Diamond, null, tint = Color.White, modifier = Modifier.size(size * 0.62f)) }
-}
+fun DiamondIcon(size: Dp = 16.dp) = Diamond3D(size)
 
 @Composable
 fun CoinAmount(amount: Int, modifier: Modifier = Modifier, color: Color = Ink, diamond: Boolean = false, iconSize: Dp = 14.dp, style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.labelMedium) {
@@ -357,8 +361,10 @@ fun SmallGradientButton(text: String, onClick: () -> Unit, modifier: Modifier = 
     Row(
         modifier
             .height(height)
+            .shadow(8.dp, CircleShape, ambientColor = BrandPink, spotColor = BrandPink)
             .clip(CircleShape)
             .background(BrandBrush.primary)
+            .drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.White.copy(alpha = 0.04f), 0.52f to Color.Transparent)) }
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -378,7 +384,8 @@ fun SmallOutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = M
         modifier
             .height(height)
             .clip(CircleShape)
-            .border(1.dp, Hairline, CircleShape)
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.06f))), CircleShape)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -400,7 +407,10 @@ fun PillChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Mod
         color = if (selected) Color.White else InkSecondary,
         modifier = modifier
             .clip(CircleShape)
-            .then(if (selected) Modifier.background(BrandBrush.primary) else Modifier.background(SurfaceMuted))
+            .then(
+                if (selected) Modifier.background(BrandBrush.primary).drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent)) }
+                else Modifier.background(SurfaceMuted.copy(alpha = 0.75f)).border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     )
@@ -443,6 +453,8 @@ fun UnderlineTabs(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit, mo
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: () -> Unit = {}) {
     Row(modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(4.dp).height(16.dp).shadow(6.dp, CircleShape, spotColor = BrandPink).clip(CircleShape).background(com.live.ishqexpress.ui.theme.BrandBrush.neon))
+        Spacer(Modifier.width(8.dp))
         Text(text, style = MaterialTheme.typography.titleMedium, color = Ink, modifier = Modifier.weight(1f))
         if (action != null) {
             Text(action, style = MaterialTheme.typography.titleSmall, color = BrandPink, modifier = Modifier.clickable(onClick = onAction))
@@ -510,10 +522,11 @@ fun IshqCard(modifier: Modifier = Modifier, padding: Dp = 16.dp, background: Col
     val shape = RoundedCornerShape(20.dp)
     Column(
         modifier
-            .shadow(8.dp, shape, ambientColor = BrandViolet.copy(alpha = 0.10f), spotColor = BrandViolet.copy(alpha = 0.16f))
-            .clip(shape)
-            .background(if (background == Canvas) Brush.verticalGradient(listOf(Color.White, Color(0xFFFFFBFD))) else androidx.compose.ui.graphics.SolidColor(background))
-            .border(1.dp, Color.White.copy(alpha = 0.9f), shape)
+            .then(
+                if (background == Canvas) Modifier.glass(shape)
+                else Modifier.shadow(10.dp, shape, ambientColor = BrandPink.copy(alpha = 0.3f), spotColor = BrandViolet.copy(alpha = 0.5f)).clip(shape).background(background)
+                    .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.2f), Color.White.copy(alpha = 0.03f))), shape)
+            )
             .padding(padding),
         content = content
     )
@@ -527,6 +540,8 @@ fun GradientCard(modifier: Modifier = Modifier, brush: Brush = BrandBrush.deep, 
             .shadow(14.dp, shape, ambientColor = BrandPink.copy(alpha = 0.35f), spotColor = BrandViolet.copy(alpha = 0.6f))
             .clip(shape)
             .background(brush)
+            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.05f))), shape)
+            .shine(periodMs = 5_000, alpha = 0.16f)
             .drawWithContent {
                 drawContent()
                 // Glass sheen across the top for a raised, 3D card.
@@ -552,7 +567,7 @@ fun Stat(value: String, label: String, modifier: Modifier = Modifier, color: Col
 fun ProgressBar(fraction: Float, modifier: Modifier = Modifier, height: Dp = 8.dp, track: Color = Hairline, brush: Brush = BrandBrush.primary) {
     val f by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(600), label = "progress")
     Box(modifier.fillMaxWidth().height(height).clip(CircleShape).background(track)) {
-        Box(Modifier.fillMaxWidth(f).height(height).clip(CircleShape).background(brush))
+        Box(Modifier.fillMaxWidth(f).height(height).clip(CircleShape).background(brush).drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.35f), 0.5f to Color.Transparent)) }.shine(2_800, 0.3f))
     }
 }
 
@@ -577,6 +592,7 @@ fun GlassButton(icon: ImageVector, desc: String?, onClick: () -> Unit, modifier:
             .size(size)
             .clip(CircleShape)
             .then(if (highlighted) Modifier.background(BrandBrush.primary) else Modifier.background(Color.Black.copy(alpha = 0.32f)))
+            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.04f))), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { Icon(icon, desc, tint = tint, modifier = Modifier.size(size * 0.52f)) }
