@@ -220,7 +220,7 @@ internal fun Render(dest: Dest) {
         Screen.News -> NewsScreen(back)
         Screen.Notifications -> NotificationsScreen(back)
         Screen.ChatThread -> ChatThreadScreen(conversationId = dest.arg, onBack = back)
-        Screen.MediaPacks -> MediaPacksScreen(back)
+        Screen.MediaPacks -> MediaPacksScreen(back, sendTo = dest.arg)
         Screen.VideoCall -> VideoCallScreen(creatorId = dest.arg)
         Screen.GroupCall -> GroupCallScreen()
         Screen.IncomingCall -> IncomingCallScreen(creatorId = dest.arg)

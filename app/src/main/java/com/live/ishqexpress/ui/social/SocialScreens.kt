@@ -292,9 +292,10 @@ private fun PostAction(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 /* ============================== 56 · Fan subscription tiers (shared) ============================== */
 
 @Composable
-fun FanTierSheet(creator: LiveCreator, onDismiss: () -> Unit) {
+fun FanTierSheet(creator: LiveCreator, initialTier: Int = 1, onSubscribed: (Int) -> Unit = {}, onDismiss: () -> Unit) {
     val toast = LocalToast.current
-    var sel by remember { mutableIntStateOf(1) }
+    val nav = LocalNav.current
+    var sel by remember { mutableIntStateOf(initialTier) }
     IshqSheet(onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Avatar(creator.imageUrl, 64.dp, ring = true)
@@ -331,7 +332,11 @@ fun FanTierSheet(creator: LiveCreator, onDismiss: () -> Unit) {
         }
         Spacer(Modifier.height(12.dp))
         Box(Modifier.padding(horizontal = 20.dp)) {
-            PrimaryButton("Subscribe · ${fanTiers[sel].coins.grouped()} coins", { onDismiss(); toast("You're now a ${fanTiers[sel].name}! 🎉") })
+            PrimaryButton("Subscribe · ${fanTiers[sel].coins.grouped()} coins", {
+                val cost = fanTiers[sel].coins
+                if (DemoWallet.coins < cost) { onDismiss(); toast("Not enough coins"); nav.push(Screen.CoinStore) }
+                else { DemoWallet.coins -= cost; onDismiss(); onSubscribed(sel); toast("You're now a ${fanTiers[sel].name}! 🎉") }
+            })
         }
     }
 }

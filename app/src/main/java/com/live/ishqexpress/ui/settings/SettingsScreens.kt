@@ -68,7 +68,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
             item { Group("Account") }
             item { MenuRow(Icons.Rounded.Person, "Edit profile", onClick = { nav.push(Screen.EditProfile) }) }
-            item { MenuRow(Icons.Rounded.Phone, "Phone number", trailingText = "+91 98••• ••210", onClick = { nav.push(Screen.PhoneNumber) }) }
+            item { MenuRow(Icons.Rounded.Phone, "Phone number", trailingText = com.live.ishqexpress.data.Session.maskedPhone(), onClick = { nav.push(Screen.PhoneNumber) }) }
             item { MenuRow(Icons.Rounded.Link, "Linked accounts", trailingText = "Google", onClick = { nav.push(Screen.LinkedAccounts) }) }
             item { MenuRow(Icons.Rounded.Star, "My subscriptions", onClick = { nav.push(Screen.Subscriptions) }) }
 

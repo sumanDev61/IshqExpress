@@ -171,7 +171,7 @@ private fun LiveRoom(creator: LiveCreator, active: Boolean, onClose: () -> Unit)
         if (premiumLocked) PremiumGate(creator, DemoWallet.coins, onClose = onClose, onPay = { fee ->
             if (fee > DemoWallet.coins) { toast("Not enough coins"); nav.push(Screen.CoinStore) }
             else { DemoWallet.coins -= fee; premiumLocked = false; toast("Welcome in! Enjoy the show") }
-        })
+        }, onFan = { premiumLocked = false })
     }
 
     when (val s = sheet) {
@@ -334,8 +334,10 @@ private fun buildAnnotatedStringSafe(name: String, text: String) =
 /* ------------------------------ 16 · Premium entry ------------------------------ */
 
 @Composable
-private fun PremiumGate(creator: LiveCreator, coins: Int, onClose: () -> Unit, onPay: (Int) -> Unit) {
+private fun PremiumGate(creator: LiveCreator, coins: Int, onClose: () -> Unit, onPay: (Int) -> Unit, onFan: () -> Unit = {}) {
     val fee = 500
+    var fanSheet by remember { mutableStateOf(false) }
+    if (fanSheet) com.live.ishqexpress.ui.social.FanTierSheet(creator, onDismiss = { fanSheet = false }, onSubscribed = { onFan() })
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).blur(0.dp).clickable(enabled = false) {}) {
         AsyncImage(creator.imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(30.dp).alpha(0.6f))
         GlassButton(Icons.Rounded.Close, "Close", onClose, Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp), size = 34.dp)
@@ -366,7 +368,7 @@ private fun PremiumGate(creator: LiveCreator, coins: Int, onClose: () -> Unit, o
             Text(
                 "Become a Super Fan instead",
                 style = MaterialTheme.typography.titleSmall, color = BrandPink,
-                modifier = Modifier.clip(CircleShape).clickable { }.padding(12.dp)
+                modifier = Modifier.clip(CircleShape).clickable { fanSheet = true }.padding(12.dp)
             )
         }
     }

@@ -126,6 +126,9 @@ fun ChatThreadScreen(conversationId: Int, onBack: () -> Unit) {
     var accepted by remember { mutableStateOf(!conv.request) }
     val listState = rememberLazyListState()
     LaunchedEffect(messages.size) { listState.animateScrollToItem(messages.size) }
+    // Packs sent from the Media Packs screen land here.
+    val pending = MediaPackStore.outbox[conv.id]
+    LaunchedEffect(pending) { pending?.let { messages.addAll(it); MediaPackStore.outbox.remove(conv.id) } }
 
     Column(Modifier.fillMaxSize().appBackground().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -194,7 +197,7 @@ fun ChatThreadScreen(conversationId: Int, onBack: () -> Unit) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     AttachItem(Icons.Rounded.Image, "Photo", BrandPink) { panel = 0; pickPhoto() }
                     AttachItem(Icons.Rounded.CameraAlt, "Camera", BrandViolet) { panel = 0; takePhoto() }
-                    AttachItem(Icons.Rounded.PhotoLibrary, "Media pack", BrandOrchid) { panel = 0; nav.push(Screen.MediaPacks) }
+                    AttachItem(Icons.Rounded.PhotoLibrary, "Media pack", BrandOrchid) { panel = 0; nav.push(Screen.MediaPacks, conv.id) }
                     AttachItem(Icons.Rounded.Call, "Call", Success) { panel = 0; nav.push(Screen.VideoCall, cr.id) }
                 }
             }
@@ -241,18 +244,28 @@ private fun Bubble(m: Message, translate: Boolean) {
 /* ============================== 47 · Media Packs ============================== */
 
 @Composable
-fun MediaPacksScreen(onBack: () -> Unit) {
+fun MediaPacksScreen(onBack: () -> Unit, sendTo: Int = 0) {
+    val nav = LocalNav.current
     val toast = LocalToast.current
     var creating by remember { mutableStateOf(false) }
+    var sending by remember { mutableStateOf<MediaPack?>(null) }
+    fun send(convId: Int, p: MediaPack) {
+        MediaPackStore.send(convId, p)
+        toast("Sent \"${p.title}\" to ${creatorById(sampleConversations.first { it.id == convId }.creator).name.substringBefore(' ')}")
+        if (sendTo > 0) onBack() else nav.push(Screen.ChatThread, convId)
+    }
     ScreenScaffold("Media Packs", onBack, actions = { TopAction(Icons.Rounded.Add, "New pack") { creating = true } }) {
-        Text("Save albums once and send them in any chat — free or for coins.", style = MaterialTheme.typography.bodySmall, color = InkSecondary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+        Text(
+            if (sendTo > 0) "Tap a pack to send it in this chat." else "Save albums once and send them in any chat — free or for coins.",
+            style = MaterialTheme.typography.bodySmall, color = InkSecondary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+        )
         LazyVerticalGrid(GridCells.Fixed(2), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(sampleMediaPacks) { p ->
-                Column(Modifier.clickable { toast("Pack \"${p.title}\" ready to send") }) {
+            items(MediaPackStore.packs) { p ->
+                Column(Modifier.clickable { if (sendTo > 0) send(sendTo, p) else sending = p }) {
                     Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
                         // stacked look
                         Box(Modifier.matchParentSize().padding(start = 10.dp, end = 10.dp).offset(y = (-6).dp).clip(RoundedCornerShape(16.dp)).background(PinkTintStrong))
-                        AsyncImage(photo(p.cover, 400, 400), null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().clip(RoundedCornerShape(16.dp)))
+                        AsyncImage(p.coverUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().clip(RoundedCornerShape(16.dp)))
                         Row(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
                             GlassPill { Icon(Icons.Rounded.PhotoLibrary, null, tint = Color.White, modifier = Modifier.size(12.dp)); Text(" ${p.count}", style = MaterialTheme.typography.labelSmall, color = Color.White) }
                         }
@@ -265,23 +278,57 @@ fun MediaPacksScreen(onBack: () -> Unit) {
             }
         }
     }
+    sending?.let { p ->
+        IshqSheet({ sending = null }, title = "Send \"${p.title}\"") {
+            sampleConversations.filter { !it.request }.forEach { conv ->
+                val c = creatorById(conv.creator)
+                Row(Modifier.fillMaxWidth().clickable { sending = null; send(conv.id, p) }.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(c.imageUrl, 44.dp, online = conv.online)
+                    Spacer(Modifier.width(12.dp))
+                    Text(c.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                    SmallGradientButton("Send", { sending = null; send(conv.id, p) }, height = 32.dp)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
     if (creating) {
         var name by remember { mutableStateOf("") }
         var price by remember { mutableIntStateOf(0) }
+        var media by remember { mutableStateOf<List<String>>(emptyList()) }
+        val pick = rememberMediaPicker(20) { media = (media + it).take(20) }
         IshqSheet({ creating = false }, title = "New media pack") {
             Column(Modifier.padding(horizontal = 20.dp)) {
-                OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Pack name") }, singleLine = true, shape = RoundedCornerShape(14.dp),
+                OutlinedTextField(name, { if (it.length <= 30) name = it }, Modifier.fillMaxWidth(), label = { Text("Pack name") }, singleLine = true, shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPink, unfocusedBorderColor = Hairline, focusedLabelColor = BrandPink))
                 Spacer(Modifier.height(12.dp))
                 Text("Price to unlock", style = MaterialTheme.typography.titleSmall, color = Ink)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0, 99, 199, 499).forEach { p -> PillChip(if (p == 0) "Free" else "$p coins", price == p, { price = p }) } }
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth().height(90.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                if (media.isEmpty()) Row(
+                    Modifier.fillMaxWidth().height(90.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { pick() },
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(Icons.Rounded.AddPhotoAlternate, null, tint = BrandPink); Text("  Add photos & videos", style = MaterialTheme.typography.titleSmall, color = InkSecondary)
+                } else LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(media) { m ->
+                        Box(Modifier.size(84.dp).clip(RoundedCornerShape(12.dp))) {
+                            AsyncImage(m, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            Icon(Icons.Rounded.Close, "Remove", tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)).clickable { media = media - m }.padding(3.dp))
+                        }
+                    }
+                    item {
+                        Box(Modifier.size(84.dp).clip(RoundedCornerShape(12.dp)).border(1.5.dp, Hairline, RoundedCornerShape(12.dp)).clickable { pick() }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Add, "Add more", tint = BrandPink)
+                        }
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Create pack", { creating = false; toast("Pack created") }, enabled = name.isNotBlank())
+                PrimaryButton("Create pack", {
+                    MediaPackStore.packs.add(0, MediaPack(name.trim(), media.size, 400 + MediaPackStore.packs.size, price, media))
+                    creating = false; toast("Pack \"${name.trim()}\" created")
+                }, enabled = name.isNotBlank() && media.isNotEmpty())
             }
         }
     }
@@ -313,7 +360,8 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
     var cam by remember { mutableStateOf(true) }
     var translate by remember { mutableStateOf(false) }
     RequestOnEnter(Perms.video) { cam = false; toast("Camera is off — allow it in Android settings to be seen") }
-    var filter by remember { mutableIntStateOf(0) }
+    var fxSheet by remember { mutableStateOf<Int?>(null) }   // 0 beauty panel, 1 voice changer, 2 gifts
+    val giftFx = remember { com.live.ishqexpress.ui.gifts.GiftEffectsState() }
     var showExtend by remember { mutableStateOf(false) }
     var swapped by remember { mutableStateOf(false) }
 
@@ -337,7 +385,6 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
             if (cam && !swapped) SelfCameraTile(photo(77, 300, 450), front = CameraState.front)
             else if (cam) AsyncImage(c.imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.VideocamOff, null, tint = Color.White) }
-            if (filter > 0) Text(listOf("", "🐰", "👑", "🕶️")[filter], fontSize = 30.sp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp))
         }
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -368,11 +415,11 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
                 Text("🌐 \"Aap kaise ho?\" → \"How are you?\"", style = MaterialTheme.typography.bodySmall, color = Color.White, modifier = Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(10.dp))
             }
             Spacer(Modifier.weight(1f))
-            // Filters row
-            Row(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf("⭕", "🐰", "👑", "🕶️").forEachIndexed { i, e ->
-                    Box(Modifier.size(42.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.35f)).then(if (filter == i) Modifier.border(2.dp, BrandPink, CircleShape) else Modifier).clickable { filter = i }, contentAlignment = Alignment.Center) { Text(e, fontSize = 20.sp) }
-                }
+            // Masks, beauty and voice — applied to your camera / mic right away
+            Row(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                QuickMaskRow()
+                GlassButton(Icons.Rounded.FaceRetouchingNatural, "Beauty", { fxSheet = 0 }, size = 42.dp, highlighted = CameraFx.anyBeauty || CameraFx.filter != 0)
+                GlassButton(Icons.Rounded.GraphicEq, "Voice changer", { fxSheet = 1 }, size = 42.dp, highlighted = VoiceFx.active)
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 GlassButton(if (mic) Icons.Rounded.Mic else Icons.Rounded.MicOff, "Mic", { mic = !mic }, size = 52.dp, highlighted = !mic)
@@ -381,9 +428,19 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
                     nav.pop(); toast(if (perMinute != null) "Show ended · unused coins refunded" else "Call ended · ${formatClock(seconds)}")
                 }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.CallEnd, "End", tint = Color.White, modifier = Modifier.size(30.dp)) }
                 GlassButton(Icons.Rounded.Translate, "Translate", { translate = !translate }, size = 52.dp, highlighted = translate)
-                GlassButton(Icons.Rounded.CardGiftcard, "Gift", { toast("Sent a Rose 🌹") }, size = 52.dp)
+                GlassButton(Icons.Rounded.CardGiftcard, "Gift", { fxSheet = 2 }, size = 52.dp)
             }
         }
+        com.live.ishqexpress.ui.gifts.GiftEffectsLayer(giftFx, faceAnchor = androidx.compose.ui.geometry.Offset(0.5f, 0.3f))
+    }
+
+    when (fxSheet) {
+        0 -> BeautyPanel { fxSheet = null }
+        1 -> VoiceChangerSheet { fxSheet = null }
+        2 -> com.live.ishqexpress.ui.gifts.GiftDrawer(
+            giftFx, listOf(GiftTarget(c.id, c.name, c.imageUrl)),
+            onDismiss = { fxSheet = null }, onRecharge = { fxSheet = null; nav.push(Screen.CoinStore) },
+        )
     }
 
     if (showExtend && perMinute != null) IshqSheet({ showExtend = false }, title = "Extend private show") {
@@ -407,6 +464,7 @@ fun GroupCallScreen() {
     var mic by remember { mutableStateOf(true) }
     var cam by remember { mutableStateOf(true) }
     RequestOnEnter(Perms.video) { cam = false }
+    var fxSheet by remember { mutableStateOf<Int?>(null) }
     var seconds by remember { mutableIntStateOf(0) }
     var speaking by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(1000); seconds++; if (seconds % 2 == 0) speaking = (speaking + 1) % (people.size + 1) } }
@@ -439,12 +497,18 @@ fun GroupCallScreen() {
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            GlassButton(if (mic) Icons.Rounded.Mic else Icons.Rounded.MicOff, "Mic", { mic = !mic }, size = 52.dp, highlighted = !mic)
-            GlassButton(if (cam) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, "Camera", { cam = !cam }, size = 52.dp, highlighted = !cam)
-            GlassButton(Icons.Rounded.Cameraswitch, "Flip", { CameraState.front = !CameraState.front }, size = 52.dp)
-            Box(Modifier.size(62.dp).clip(CircleShape).background(LiveRed).clickable { nav.pop() }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.CallEnd, "Leave", tint = Color.White, modifier = Modifier.size(28.dp)) }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 20.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            GlassButton(if (mic) Icons.Rounded.Mic else Icons.Rounded.MicOff, "Mic", { mic = !mic }, size = 46.dp, highlighted = !mic)
+            GlassButton(if (cam) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, "Camera", { cam = !cam }, size = 46.dp, highlighted = !cam)
+            GlassButton(Icons.Rounded.Cameraswitch, "Flip", { CameraState.front = !CameraState.front }, size = 46.dp)
+            GlassButton(Icons.Rounded.FaceRetouchingNatural, "Beauty", { fxSheet = 0 }, size = 46.dp, highlighted = CameraFx.anyBeauty || CameraFx.filter != 0 || CameraFx.mask != 0)
+            GlassButton(Icons.Rounded.GraphicEq, "Voice changer", { fxSheet = 1 }, size = 46.dp, highlighted = VoiceFx.active)
+            Box(Modifier.size(58.dp).clip(CircleShape).background(LiveRed).clickable { nav.pop() }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.CallEnd, "Leave", tint = Color.White, modifier = Modifier.size(28.dp)) }
         }
+    }
+    when (fxSheet) {
+        0 -> BeautyPanel { fxSheet = null }
+        1 -> VoiceChangerSheet { fxSheet = null }
     }
 }
 

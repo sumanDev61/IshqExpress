@@ -74,6 +74,7 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
     var shareOnStart by rememberSaveable { mutableStateOf(true) }
     var trySkin by rememberSaveable { mutableIntStateOf(RoomSkinState.selected) }
     var beautyTab by remember { mutableStateOf<Int?>(null) }
+    var showVoice by remember { mutableStateOf(false) }
     var showPremium by remember { mutableStateOf(false) }
     var buySkin by remember { mutableStateOf<RoomSkin?>(null) }
     var countdown by remember { mutableIntStateOf(0) }
@@ -205,12 +206,25 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
                 if (live != LiveType.Audio) {
                     GlassPanel("Camera") {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            SetupTool(Icons.Rounded.FaceRetouchingNatural, "Beauty", Color(0xFFFF5FA2)) { beautyTab = 0 }
-                            SetupTool(Icons.Rounded.AutoAwesome, "Filter", Color(0xFFB45CFF)) { beautyTab = 1 }
-                            SetupTool(Icons.Rounded.Mood, "Mask", Color(0xFFFFA63D)) { beautyTab = 2 }
-                            SetupTool(Icons.Rounded.Wallpaper, "Background", Color(0xFF3DB8FF)) { beautyTab = 3 }
+                            SetupTool(Icons.Rounded.FaceRetouchingNatural, "Beauty", Color(0xFFFF5FA2), on = CameraFx.anyBeauty) { beautyTab = 0 }
+                            SetupTool(Icons.Rounded.AutoAwesome, cameraFilters[CameraFx.filter].let { if (CameraFx.filter == 0) "Filter" else it.name }, Color(0xFFB45CFF), on = CameraFx.filter != 0) { beautyTab = 1 }
+                            SetupTool(Icons.Rounded.Mood, cameraMasks[CameraFx.mask].let { if (CameraFx.mask == 0) "Mask" else it.name }, Color(0xFFFFA63D), on = CameraFx.mask != 0) { beautyTab = 2 }
+                            SetupTool(Icons.Rounded.Wallpaper, cameraScenes[CameraFx.scene].let { if (CameraFx.scene == 0) "Scene" else it.name }, Color(0xFF3DB8FF), on = CameraFx.scene != 0) { beautyTab = 3 }
                         }
                     }
+                }
+                // Voice changer (every mode)
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.10f)).clickable { showVoice = true }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconTile3D(Icons.Rounded.GraphicEq, Color(0xFF8A5CFF), size = 36.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Voice changer", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                        Text("${VoiceFx.current.emoji} ${VoiceFx.current.name} · tap to test", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.7f))
                 }
                 if (live == LiveType.Video) {
                     Row(
@@ -284,6 +298,7 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
     }
 
     beautyTab?.let { BeautyPanel(it) { beautyTab = null } }
+    if (showVoice) VoiceChangerSheet { showVoice = false }
     if (showPremium) PremiumSettingsSheet(premium, fee, onDismiss = { showPremium = false }, onSave = { on, f -> premium = on; fee = f; showPremium = false })
     buySkin?.let { s ->
         IshqSheet(onDismiss = { buySkin = null }, title = s.name, dark = true) {
@@ -330,11 +345,14 @@ private fun ShareToggle(icon: androidx.compose.ui.graphics.vector.ImageVector, o
 }
 
 @Composable
-private fun SetupTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit) {
+private fun SetupTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, on: Boolean = false, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(70.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 4.dp)) {
-        IconTile3D(icon, color, size = 46.dp, glyph = 24.dp)
+        Box {
+            IconTile3D(icon, color, size = 46.dp, glyph = 24.dp)
+            if (on) Box(Modifier.align(Alignment.TopEnd).size(12.dp).clip(CircleShape).background(Color.White).padding(2.dp).clip(CircleShape).background(BrandPink))
+        }
         Spacer(Modifier.height(6.dp))
-        FitText(label, MaterialTheme.typography.labelMedium, color = Color.White, minSize = 9.sp)
+        FitText(label, MaterialTheme.typography.labelMedium, color = if (on) Color.White else Color.White.copy(alpha = 0.85f), minSize = 9.sp)
     }
 }
 
@@ -374,53 +392,7 @@ private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
     }
 }
 
-/* ============================== 22 · AR filters & beauty ============================== */
-
-@Composable
-private fun BeautyPanel(initialTab: Int = 0, onDismiss: () -> Unit) {
-    var tab by remember { mutableIntStateOf(initialTab) }
-    val sliders = remember { mutableStateMapOf("Smooth" to 0.6f, "Brighten" to 0.4f, "Slim face" to 0.2f, "Big eyes" to 0.1f) }
-    var filter by remember { mutableIntStateOf(0) }
-    IshqSheet(onDismiss, dark = true) {
-        UnderlineTabs(listOf("Beauty", "Filters", "Masks", "Background"), tab, { tab = it }, dark = true)
-        Spacer(Modifier.height(10.dp))
-        when (tab) {
-            0 -> Column(Modifier.padding(horizontal = 20.dp)) {
-                sliders.keys.toList().forEach { k ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(k, style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.width(84.dp))
-                        Slider(
-                            sliders.getValue(k), { sliders[k] = it }, Modifier.weight(1f),
-                            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = BrandPink, inactiveTrackColor = Color.White.copy(alpha = 0.2f))
-                        )
-                        Text("${(sliders.getValue(k) * 100).toInt()}", style = MaterialTheme.typography.labelMedium, color = Color.White, modifier = Modifier.width(32.dp), textAlign = TextAlign.End)
-                    }
-                }
-            }
-            else -> {
-                val items = when (tab) {
-                    1 -> listOf("None" to "⭕", "Warm" to "🌅", "Cool" to "❄️", "Pink" to "🌸", "Vintage" to "📷", "B&W" to "⚫", "Glow" to "✨")
-                    2 -> listOf("None" to "⭕", "Bunny" to "🐰", "Cat" to "🐱", "Crown" to "👑", "Hearts" to "💕", "Glasses" to "🕶️", "Devil" to "😈")
-                    else -> listOf("None" to "⭕", "Blur" to "🌫️", "Studio" to "🎙️", "Beach" to "🏖️", "Neon" to "🌃", "Hearts" to "💗", "Space" to "🌌")
-                }
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    itemsIndexed(items) { i, (label, emoji) ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { filter = i }) {
-                            Box(
-                                Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f))
-                                    .then(if (filter == i) Modifier.border(2.dp, BrandPink, RoundedCornerShape(16.dp)) else Modifier),
-                                contentAlignment = Alignment.Center
-                            ) { Text(emoji, fontSize = 28.sp) }
-                            Spacer(Modifier.height(4.dp))
-                            Text(label, style = MaterialTheme.typography.labelSmall, color = if (filter == i) BrandPink else Color.White)
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-    }
-}
+/* 22 · AR filters & beauty: BeautyPanel in ui/common/CameraFx.kt (shared with calls and parties). */
 
 /* ============================== 24 · Premium settings ============================== */
 
@@ -460,7 +432,7 @@ private fun PremiumSettingsSheet(enabled: Boolean, fee: Int, onDismiss: () -> Un
 
 /* ============================== 23 · Broadcaster ============================== */
 
-private enum class HostSheet { Party, Battle, Goal, Media, Moderators, Premium, Beauty, End }
+private enum class HostSheet { Party, Battle, Goal, Media, Moderators, Premium, Beauty, Voice, End }
 
 @Composable
 fun BroadcasterScreen(audioOnly: Boolean) {
@@ -528,6 +500,7 @@ fun BroadcasterScreen(audioOnly: Boolean) {
                 GlassButton(Icons.Rounded.PowerSettingsNew, "End live", { sheet = HostSheet.End }, size = 36.dp, tint = Color(0xFFFF6B8A))
             }
             goal?.let { (t, target) -> GoalBar(goalProgress.coerceAtMost(target), target, Modifier.padding(horizontal = 12.dp).width(210.dp), title = "Goal: $t") }
+            VoiceChip(Modifier.padding(start = 12.dp, top = 6.dp)) { sheet = HostSheet.Voice }
 
             media?.let { m ->
                 Spacer(Modifier.height(10.dp))
@@ -548,7 +521,9 @@ fun BroadcasterScreen(audioOnly: Boolean) {
             // Host toolbar
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 item { ToolButton(if (mic) Icons.Rounded.Mic else Icons.Rounded.MicOff, if (mic) "Mute" else "Unmute") { mic = !mic } }
-                if (!audioOnly) item { ToolButton(Icons.Rounded.FaceRetouchingNatural, "Beauty") { sheet = HostSheet.Beauty } }
+                if (!audioOnly) item { ToolButton(Icons.Rounded.FaceRetouchingNatural, "Beauty", highlighted = CameraFx.anyBeauty || CameraFx.filter != 0 || CameraFx.mask != 0 || CameraFx.scene != 0) { sheet = HostSheet.Beauty } }
+                item { ToolButton(Icons.Rounded.GraphicEq, "Voice", highlighted = VoiceFx.active) { sheet = HostSheet.Voice } }
+                if (!audioOnly) item { ToolButton(Icons.Rounded.Cameraswitch, "Flip") { CameraState.front = !CameraState.front } }
                 item { ToolButton(Icons.Rounded.Groups, "Party", highlighted = partyOn) { sheet = HostSheet.Party } }
                 item { ToolButton(Icons.Rounded.SportsMma, "Battle") { sheet = HostSheet.Battle } }
                 item { ToolButton(Icons.Rounded.Flag, "Goal") { sheet = HostSheet.Goal } }
@@ -563,6 +538,7 @@ fun BroadcasterScreen(audioOnly: Boolean) {
     when (sheet) {
         null -> {}
         HostSheet.Beauty -> BeautyPanel { sheet = null }
+        HostSheet.Voice -> VoiceChangerSheet { sheet = null }
         HostSheet.Party -> PartyHostPanel(partyOn, onDismiss = { sheet = null }, onToggle = { partyOn = it })
         HostSheet.Battle -> BattleInviteSheet(onDismiss = { sheet = null }, onStart = { id, dual -> sheet = null; nav.push(if (dual) Screen.DualBroadcast else Screen.Battle, id) })
         HostSheet.Goal -> GoalSetupSheet(goal, onDismiss = { sheet = null }, onSave = { goal = it; goalProgress = 0; sheet = null; toast(if (it == null) "Goal removed" else "Goal is live") })

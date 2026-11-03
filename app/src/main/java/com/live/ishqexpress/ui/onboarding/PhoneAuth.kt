@@ -57,6 +57,18 @@ import kotlinx.coroutines.delay
 
 /* ============================== 3a. Phone number ============================== */
 
+data class Country(val flag: String, val dial: String, val name: String, val digits: Int)
+
+/** Supported sign-up countries (the OTP provider decides the real list). */
+val countries = listOf(
+    Country("🇮🇳", "+91", "India", 10), Country("🇳🇵", "+977", "Nepal", 10), Country("🇧🇩", "+880", "Bangladesh", 10),
+    Country("🇵🇰", "+92", "Pakistan", 10), Country("🇱🇰", "+94", "Sri Lanka", 9), Country("🇦🇪", "+971", "UAE", 9),
+    Country("🇸🇦", "+966", "Saudi Arabia", 9), Country("🇬🇧", "+44", "United Kingdom", 10), Country("🇺🇸", "+1", "United States", 10),
+)
+
+/** Dial code picked on the phone screen, e.g. "+91". */
+fun selectedDial(): String = countries[com.live.ishqexpress.data.Session.int("country", 0).coerceIn(0, countries.lastIndex)].dial
+
 @Composable
 fun PhoneEntryScreen(
     phone: String,
@@ -66,8 +78,24 @@ fun PhoneEntryScreen(
 ) {
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
+    var country by com.live.ishqexpress.data.rememberIntPref("country", 0)
+    var picking by remember { mutableStateOf(false) }
+    val (flag, dial, _, digits) = countries[country.coerceIn(0, countries.lastIndex)]
+    if (picking) com.live.ishqexpress.ui.common.IshqSheet({ picking = false }, title = "Country") {
+        countries.forEachIndexed { i, (f, d, name, _) ->
+            Row(
+                Modifier.fillMaxWidth().clickable { country = i; onPhoneChange(phone.take(countries[i].digits)); picking = false }.padding(horizontal = 20.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(f, fontSize = 22.sp)
+                Spacer(Modifier.width(14.dp))
+                Text(name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                Text(if (i == country) "✓  $d" else d, style = MaterialTheme.typography.titleSmall, color = if (i == country) BrandPink else InkSecondary)
+            }
+        }
+    }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    val valid = phone.length == 10
+    val valid = phone.length == digits
 
     OnboardingFrame(
         title = "What's your number?",
@@ -80,19 +108,19 @@ fun PhoneEntryScreen(
             Modifier.padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Country picker (UI only)
+            // Country picker
             Row(
                 Modifier
                     .height(60.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(SurfaceMuted)
-                    .clickable { }
+                    .clickable { picking = true }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🇮🇳", fontSize = 20.sp)
+                Text(flag, fontSize = 20.sp)
                 Spacer(Modifier.width(6.dp))
-                Text("+91", style = MaterialTheme.typography.titleMedium, color = Ink)
+                Text(dial, style = MaterialTheme.typography.titleMedium, color = Ink)
                 Icon(Icons.Rounded.KeyboardArrowDown, null, tint = InkTertiary, modifier = Modifier.size(20.dp))
             }
             val border by animateColorAsState(if (focused) BrandPink else Hairline, label = "b")
@@ -108,7 +136,7 @@ fun PhoneEntryScreen(
             ) {
                 BasicTextField(
                     value = phone,
-                    onValueChange = { v -> onPhoneChange(v.filter(Char::isDigit).take(10)) },
+                    onValueChange = { v -> onPhoneChange(v.filter(Char::isDigit).take(digits)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     textStyle = MaterialTheme.typography.titleMedium.copy(color = Ink, fontSize = 18.sp, letterSpacing = 1.sp),
@@ -161,7 +189,7 @@ fun OtpScreen(
         while (seconds > 0) { delay(1000); seconds-- }
     }
 
-    val pretty = "+91 ${phone.take(5)} ${phone.drop(5)}"
+    val pretty = "${selectedDial()} ${phone.take(5)} ${phone.drop(5)}"
 
     OnboardingFrame(
         title = "Enter the code",

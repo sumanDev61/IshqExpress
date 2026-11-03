@@ -445,6 +445,13 @@ fun SubscriptionsScreen(onBack: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val active = remember { mutableStateListOf(Triple(1, 1, "Renews 1 Dec"), Triple(6, 0, "Renews 14 Nov"), Triple(9, 2, "Renews 22 Nov")) }
     var cancelling by remember { mutableStateOf<Triple<Int, Int, String>?>(null) }
+    var changing by remember { mutableStateOf<Triple<Int, Int, String>?>(null) }
+    changing?.let { sub ->
+        com.live.ishqexpress.ui.social.FanTierSheet(creatorById(sub.first), onDismiss = { changing = null }, initialTier = sub.second, onSubscribed = { tier ->
+            val i = active.indexOfFirst { it.first == sub.first }
+            if (i >= 0) active[i] = sub.copy(second = tier)
+        })
+    }
     ScreenScaffold("Subscriptions", onBack) {
         UnderlineTabs(listOf("Active (${active.size})", "Expired"), tab, { tab = it })
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -476,7 +483,7 @@ fun SubscriptionsScreen(onBack: () -> Unit) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Autorenew, null, tint = InkTertiary, modifier = Modifier.size(16.dp))
                             Text(" ${sub.third}", style = MaterialTheme.typography.bodySmall, color = InkSecondary, modifier = Modifier.weight(1f))
-                            Text("Change tier", style = MaterialTheme.typography.labelMedium, color = BrandPink, modifier = Modifier.clickable { toast("Tier options coming from the creator's page") }.padding(6.dp))
+                            Text("Change tier", style = MaterialTheme.typography.labelMedium, color = BrandPink, modifier = Modifier.clickable { changing = sub }.padding(6.dp))
                             Text("Cancel", style = MaterialTheme.typography.labelMedium, color = InkTertiary, modifier = Modifier.clickable { cancelling = sub }.padding(6.dp))
                         }
                     }

@@ -149,11 +149,14 @@ private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> 
     val nav = LocalNav.current
     val toast = LocalToast.current
     val doubled = firstPurchase && p.tag?.startsWith("First") == true
-    val total = (if (doubled) p.coins * 2 else p.coins) + p.bonus
+    // Coupon picked on the VIP page: percent of base coins, used up on this purchase.
+    var coupon by com.live.ishqexpress.data.rememberIntPref("coupon", 0)
+    val couponCoins = p.coins * coupon / 100
+    val total = (if (doubled) p.coins * 2 else p.coins) + p.bonus + couponCoins
     var state by remember { mutableIntStateOf(0) } // 0 review, 1 processing, 2 done
     LaunchedEffect(state) {
         if (state == 1) { delay(1600); state = 2 }
-        if (state == 2) { delay(1200); toast("${total.grouped()} coins added"); onPaid(total) }
+        if (state == 2) { delay(1200); toast("${total.grouped()} coins added"); coupon = 0; onPaid(total) }
     }
     IshqSheet(onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -176,7 +179,7 @@ private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> 
                         Text(p.price, style = MaterialTheme.typography.titleMedium, color = Ink)
                     }
                     Spacer(Modifier.height(12.dp))
-                    listOf("Base" to p.coins, "Bonus" to p.bonus, "First purchase" to if (doubled) p.coins else 0).filter { it.second > 0 }.forEach { (l, v) ->
+                    listOf("Base" to p.coins, "Bonus" to p.bonus, "First purchase" to if (doubled) p.coins else 0, "Coupon +$coupon%" to couponCoins).filter { it.second > 0 }.forEach { (l, v) ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                             Text(l, style = MaterialTheme.typography.bodyMedium, color = InkSecondary, modifier = Modifier.weight(1f))
                             Text("+${v.grouped()}", style = MaterialTheme.typography.bodyMedium, color = Ink)
@@ -251,6 +254,7 @@ fun TransactionsScreen(onBack: () -> Unit) {
 @Composable
 fun VipScreen(onBack: () -> Unit) {
     val toast = LocalToast.current
+    val nav = LocalNav.current
     val pager = rememberPagerState(initialPage = Me.vipTier - 1) { vipTiers.size }
     ScreenScaffold("VIP", onBack) {
         LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
@@ -302,10 +306,14 @@ fun VipScreen(onBack: () -> Unit) {
             item {
                 SectionLabel("My coupons")
                 Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf("+6% coins" to "Any pack · 3 days left", "+10% coins" to "₹1,799+ · 6 days left").forEach { (a, b) ->
-                        Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFFFF4DA), Color(0xFFFFE6B0)))).clickable { toast("Coupon applied at checkout") }.padding(14.dp)) {
+                    var coupon by com.live.ishqexpress.data.rememberIntPref("coupon", 0)
+                    listOf(Triple(6, "+6% coins", "Any pack · 3 days left"), Triple(10, "+10% coins", "₹1,799+ · 6 days left")).forEach { (pct, a, b) ->
+                        val on = coupon == pct
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFFFF4DA), Color(0xFFFFE6B0))))
+                            .then(if (on) Modifier.border(2.dp, Color(0xFFB06A00), RoundedCornerShape(14.dp)) else Modifier)
+                            .clickable { coupon = pct; toast("Coupon $a applied — buy any pack"); nav.push(Screen.CoinStore) }.padding(14.dp)) {
                             Text(a, style = MaterialTheme.typography.titleMedium, color = Color(0xFFB06A00))
-                            Text(b, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                            Text(if (on) "Selected · used on next purchase" else b, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                         }
                     }
                 }
@@ -388,7 +396,7 @@ fun DailyRewardsScreen(onBack: () -> Unit) {
                             title.contains("Follow", true) -> nav.push(Screen.Search)
                             title.contains("Share", true) || title.contains("Watch", true) || title.contains("gift", true) -> nav.push(Screen.LiveViewer, 1)
                             title.contains("Invite", true) -> shareText(ctx, "Join me on ishqexpress — we both get 50 coins! ${AppLinks.invite("SUMAN-A2")}")
-                            else -> toast("Opening task…")
+                            else -> nav.popToRoot()
                         }
                     }, height = 32.dp, color = BrandPink)
                 }

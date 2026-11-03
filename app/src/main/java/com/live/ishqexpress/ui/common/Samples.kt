@@ -302,7 +302,20 @@ val sampleMessages = listOf(
     Message(false, "See you at the live tonight 😊", "9:41"),
 )
 
-data class MediaPack(val title: String, val count: Int, val cover: Int, val price: Int)
+data class MediaPack(val title: String, val count: Int, val cover: Int, val price: Int, val photos: List<String> = emptyList()) {
+    val coverUrl get() = photos.firstOrNull() ?: photo(cover, 400, 400)
+}
+
+/** Your packs (samples + ones you create this session) and messages waiting to land in a chat. */
+object MediaPackStore {
+    val packs by lazy { androidx.compose.runtime.mutableStateListOf<MediaPack>().apply { addAll(sampleMediaPacks) } }
+    /** conversation id → messages to append when that chat opens. */
+    val outbox = androidx.compose.runtime.mutableStateMapOf<Int, List<Message>>()
+    fun send(conversationId: Int, p: MediaPack) {
+        val msg = Message(true, if (p.price > 0) "🔒 ${p.title} · ${p.count} items · ${p.price} coins to unlock" else "📁 ${p.title} · ${p.count} items", "now", imageUrl = p.coverUrl)
+        outbox[conversationId] = (outbox[conversationId] ?: emptyList()) + msg
+    }
+}
 
 val sampleMediaPacks = listOf(
     MediaPack("Diwali shoot", 12, 401, 199),

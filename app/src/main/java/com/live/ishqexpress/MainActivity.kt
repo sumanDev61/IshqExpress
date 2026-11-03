@@ -100,7 +100,7 @@ fun IshqApp() {
             Route.Otp -> OtpScreen(
                 phone = phone,
                 onBack = { back(Route.Phone) },
-                onVerified = { route = Route.Profile }
+                onVerified = { com.live.ishqexpress.data.Session.setString("phone", "${com.live.ishqexpress.ui.onboarding.selectedDial()} $phone"); route = Route.Profile }
             )
             Route.Profile -> ProfileSetupScreen(
                 draft = profile,
