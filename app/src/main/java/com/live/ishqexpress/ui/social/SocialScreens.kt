@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import coil.compose.AsyncImage
+import androidx.compose.ui.focus.focusRequester
 import com.live.ishqexpress.ui.common.*
 import com.live.ishqexpress.ui.components.PrimaryButton
 import com.live.ishqexpress.ui.home.LiveCreator
@@ -184,7 +185,7 @@ fun FeedScreen(onBack: () -> Unit) {
             UnderlineTabs(listOf("Following", "For you"), tab, { tab = it })
             LazyColumn(contentPadding = PaddingValues(bottom = 100.dp)) {
                 item { StoriesRow() }
-                val posts = if (tab == 0) samplePosts else samplePosts.reversed()
+                val posts = if (tab == 0) MyPosts.all().filter { it.creator !in com.live.ishqexpress.data.Session.blocked } else samplePosts.reversed()
                 items(posts, key = { it.id }) { p ->
                     PostCard(p, liked = p.id in liked, onLike = { if (p.id in liked) liked.remove(p.id) else liked.add(p.id) }, onOpen = { nav.push(Screen.PostDetail, p.id) })
                     HorizontalDivider(color = Hairline, thickness = 6.dp)
@@ -225,24 +226,27 @@ private fun StoriesRow() {
 @Composable
 fun PostCard(p: Post, liked: Boolean, onLike: () -> Unit, onOpen: () -> Unit) {
     val nav = LocalNav.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val c = creatorById(p.creator)
+    val mine = p.creator == 0
     var unlockSheet by remember { mutableStateOf(false) }
+    var giftSheet by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(c.imageUrl, 40.dp, Modifier.clickable { nav.push(Screen.OtherProfile, c.id) })
+            Avatar(if (mine) Me.avatarUrl else c.imageUrl, 40.dp, Modifier.clickable { if (!mine) nav.push(Screen.OtherProfile, c.id) })
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                NameRow(c.name, c.verified)
+                NameRow(if (mine) Me.name else c.name, !mine && c.verified)
                 Text("${p.time} · ${if (p.locked) "Super Fans" else "Public"}", style = MaterialTheme.typography.bodySmall, color = InkTertiary)
             }
             Icon(Icons.Rounded.MoreHoriz, null, tint = InkTertiary)
         }
         Spacer(Modifier.height(10.dp))
         Text(p.text, style = MaterialTheme.typography.bodyMedium, color = Ink, modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onOpen))
-        if (p.image != null) {
+        if (p.image != null || p.media != null) {
             Spacer(Modifier.height(10.dp))
             Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(18.dp)).background(SurfaceMuted).clickable { if (p.locked) unlockSheet = true else onOpen() }) {
-                AsyncImage(photo(p.image), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().then(if (p.locked) Modifier.blur(28.dp) else Modifier))
+                AsyncImage(p.media ?: photo(p.image ?: 0), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().then(if (p.locked) Modifier.blur(28.dp) else Modifier))
                 if (p.video && !p.locked) Icon(Icons.Rounded.PlayCircle, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(56.dp))
                 if (p.locked) LockedOverlay { unlockSheet = true }
             }
@@ -251,12 +255,15 @@ fun PostCard(p: Post, liked: Boolean, onLike: () -> Unit, onOpen: () -> Unit) {
         Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             PostAction(if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, (p.likes + if (liked) 1 else 0).compact(), if (liked) BrandPink else InkSecondary, onLike)
             PostAction(Icons.Outlined.ChatBubbleOutline, p.comments.compact(), InkSecondary, onOpen)
-            PostAction(Icons.Outlined.CardGiftcard, "Gift", InkSecondary) {}
+            if (!mine) PostAction(Icons.Outlined.CardGiftcard, "Gift", InkSecondary) { giftSheet = true }
             Spacer(Modifier.weight(1f))
-            PostAction(Icons.Outlined.Share, "", InkSecondary) {}
+            PostAction(Icons.Outlined.Share, "", InkSecondary) {
+                shareText(ctx, "${p.text.take(80)} — ${if (mine) Me.name else c.name} on ishqexpress ${AppLinks.post(p.id)}")
+            }
         }
     }
     if (unlockSheet) FanTierSheet(c, onDismiss = { unlockSheet = false })
+    if (giftSheet) PostGiftSheet(c.name, onDismiss = { giftSheet = false })
 }
 
 @Composable
@@ -335,7 +342,8 @@ fun FanTierSheet(creator: LiveCreator, onDismiss: () -> Unit) {
 fun CreatePostScreen(onBack: () -> Unit) {
     val toast = LocalToast.current
     var text by rememberSaveable { mutableStateOf("") }
-    val media = remember { mutableStateListOf<Int>() }
+    val media = remember { mutableStateListOf<String>() }
+    val pickMedia = rememberMediaPicker(max = 9) { picked -> media.addAll(picked.take(9 - media.size)) }
     var fansOnly by rememberSaveable { mutableStateOf(false) }
     var tier by rememberSaveable { mutableIntStateOf(1) }
     var allowComments by rememberSaveable { mutableStateOf(true) }
@@ -346,7 +354,16 @@ fun CreatePostScreen(onBack: () -> Unit) {
         "New post", onBack,
         actions = {
             Box(Modifier.padding(end = 8.dp)) {
-                SmallGradientButton("Post", { toast("Posted to your feed"); onBack() }, Modifier.alpha(if (text.isNotBlank() || media.isNotEmpty()) 1f else 0.4f))
+                SmallGradientButton("Post", {
+                    if (text.isBlank() && media.isEmpty()) toast("Write something or add a photo")
+                    else {
+                        MyPosts.items.add(0, Post(
+                            id = 10_000 + MyPosts.items.size, creator = 0, text = text.trim() + (location?.let { "\n📍 $it" } ?: ""), image = null,
+                            likes = 0, comments = 0, time = "now", locked = fansOnly, media = media.firstOrNull(),
+                        ))
+                        toast("Posted to your feed"); onBack()
+                    }
+                }, Modifier.alpha(if (text.isNotBlank() || media.isNotEmpty()) 1f else 0.4f))
             }
         }
     ) {
@@ -362,13 +379,13 @@ fun CreatePostScreen(onBack: () -> Unit) {
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(media.toList()) { m ->
                     Box(Modifier.size(96.dp).clip(RoundedCornerShape(14.dp))) {
-                        AsyncImage(photo(m, 300, 300), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        AsyncImage(m, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         Icon(Icons.Rounded.Close, "Remove", tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)).clickable { media.remove(m) }.padding(3.dp))
                     }
                 }
                 item {
                     Column(
-                        Modifier.size(96.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { media.add(500 + media.size) },
+                        Modifier.size(96.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { if (media.size >= 9) toast("Up to 9 photos per post") else pickMedia() },
                         verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(Icons.Rounded.AddPhotoAlternate, null, tint = BrandPink)
@@ -396,8 +413,9 @@ fun CreatePostScreen(onBack: () -> Unit) {
 
 @Composable
 fun PostDetailScreen(postId: Int, onBack: () -> Unit) {
-    val post = samplePosts.firstOrNull { it.id == postId } ?: samplePosts.first()
+    val post = MyPosts.byId(postId) ?: samplePosts.first()
     var liked by remember { mutableStateOf(false) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     val comments = remember { mutableStateListOf(*sampleComments.toTypedArray()) }
     var draft by remember { mutableStateOf("") }
     val likedComments = remember { mutableStateListOf<Int>() }
@@ -413,7 +431,7 @@ fun PostDetailScreen(postId: Int, onBack: () -> Unit) {
                     Row(Modifier.weight(1f).height(42.dp).clip(CircleShape).background(SurfaceMuted).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) {
                             if (draft.isEmpty()) Text("Add a comment…", style = MaterialTheme.typography.bodyMedium, color = InkTertiary)
-                            BasicTextField(draft, { draft = it }, singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink), cursorBrush = androidx.compose.ui.graphics.SolidColor(BrandPink), modifier = Modifier.fillMaxWidth())
+                            BasicTextField(draft, { draft = it }, singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink), cursorBrush = androidx.compose.ui.graphics.SolidColor(BrandPink), modifier = Modifier.fillMaxWidth().then(Modifier.focusRequester(focus)))
                         }
                     }
                     Spacer(Modifier.width(8.dp))
@@ -425,7 +443,7 @@ fun PostDetailScreen(postId: Int, onBack: () -> Unit) {
         }
     ) {
         LazyColumn {
-            item { PostCard(post, liked, { liked = !liked }, {}) }
+            item { PostCard(post, liked, { liked = !liked }, { runCatching { focus.requestFocus() } }) }
             item { HorizontalDivider(color = Hairline); SectionLabel("${comments.size} comments") }
             itemsIndexed(comments) { i, c ->
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -543,13 +561,46 @@ fun NotificationsScreen(onBack: () -> Unit) {
                         Text(n.time, style = MaterialTheme.typography.bodySmall, color = InkTertiary)
                     }
                     when (n.kind) {
-                        NotifKind.Follow -> SmallGradientButton("Follow back", {}, height = 30.dp)
+                        NotifKind.Follow -> {
+                            var followed by rememberSaveable(n.text) { mutableStateOf(false) }
+                            if (followed) SmallOutlineButton("Following", { followed = false }, height = 30.dp)
+                            else SmallGradientButton("Follow back", { followed = true }, height = 30.dp)
+                        }
                         NotifKind.Live -> LivePill()
                         else -> if (n.unread) Box(Modifier.size(8.dp).clip(CircleShape).background(BrandPink))
                     }
                 }
             }
             if (list.isEmpty()) item { EmptyState("🔔", "Nothing here yet", "We'll let you know when something happens.") }
+        }
+    }
+}
+
+/** Quick gift on a post: a few small gifts paid from your coins. */
+@Composable
+private fun PostGiftSheet(creatorName: String, onDismiss: () -> Unit) {
+    val toast = LocalToast.current
+    val nav = LocalNav.current
+    val gifts = sampleGifts.filter { it.tab == GiftTab.Popular }.take(4)
+    IshqSheet(onDismiss, title = "Send a gift to ${creatorName.substringBefore(' ')}") {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            gifts.forEach { g ->
+                Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(SurfaceMuted).clickable {
+                        if (DemoWallet.coins < g.coins) { onDismiss(); toast("Not enough coins"); nav.push(Screen.CoinStore) }
+                        else { DemoWallet.coins -= g.coins; onDismiss(); toast("Sent ${g.name} ${g.emoji}") }
+                    }.padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(g.emoji, fontSize = 30.sp)
+                    FitText(g.name, MaterialTheme.typography.labelMedium, color = Ink)
+                    CoinAmount(g.coins)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Balance", style = MaterialTheme.typography.bodySmall, color = InkSecondary, modifier = Modifier.weight(1f))
+            CoinAmount(DemoWallet.coins)
         }
     }
 }

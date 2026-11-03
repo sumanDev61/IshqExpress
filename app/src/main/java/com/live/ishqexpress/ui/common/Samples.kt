@@ -21,7 +21,7 @@ fun photo(seed: Int, w: Int = 600, h: Int = 800) = "https://picsum.photos/seed/i
 /* ---------- Me ---------- */
 
 object Me {
-    const val name = "Suman"
+    val name get() = com.live.ishqexpress.data.Session.name
     const val handle = "@suman.live"
     const val id = "ID 80412337"
     const val photo = 5
@@ -34,7 +34,7 @@ object Me {
     const val followers = 1_204
     const val following = 318
     const val fans = 46
-    val avatarUrl get() = avatar(photo)
+    val avatarUrl get() = com.live.ishqexpress.data.Session.avatar ?: avatar(photo)
 }
 
 /* ---------- Gifts (13, 14) ---------- */
@@ -218,7 +218,16 @@ val sampleMatches = listOf(
 data class Post(
     val id: Int, val creator: Int, val text: String, val image: Int?, val likes: Int, val comments: Int,
     val time: String, val locked: Boolean = false, val video: Boolean = false,
+    /** Local or remote media url for posts you made (creator id 0 = you). */
+    val media: String? = null,
 )
+
+/** Posts you published this session. In production these come back from the posts API. */
+object MyPosts {
+    val items = androidx.compose.runtime.mutableStateListOf<Post>()
+    fun all() = items + samplePosts
+    fun byId(id: Int) = all().firstOrNull { it.id == id }
+}
 
 val samplePosts = listOf(
     Post(1, 1, "Rehearsal for tonight's live 🎶 9 PM, don't miss it!", 101, 4_812, 213, "2h"),
@@ -280,7 +289,7 @@ val sampleConversations = listOf(
     Conversation(8, 11, "Can we collab on a live?", "Fri", 0, online = true, request = true),
 )
 
-data class Message(val mine: Boolean, val text: String, val time: String, val translated: String? = null, val gift: String? = null, val image: Int? = null)
+data class Message(val mine: Boolean, val text: String, val time: String, val translated: String? = null, val gift: String? = null, val image: Int? = null, val imageUrl: String? = null)
 
 val sampleMessages = listOf(
     Message(false, "Hiii! Thanks for joining my live yesterday 💕", "9:30"),

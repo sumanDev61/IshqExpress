@@ -504,8 +504,9 @@ fun PrivateShowSheet(creator: LiveCreator, coins: Int, onDismiss: () -> Unit, on
 @Composable
 fun ShareSheet(creator: LiveCreator, onDismiss: () -> Unit) {
     val toast = LocalToast.current
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    val link = "https://ishq.express/live/${creator.id}"
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val link = AppLinks.live(creator.id)
+    val message = "${creator.name} is live on ishqexpress — join now! $link"
     IshqSheet(onDismiss, title = "Share live") {
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(sampleConversations.take(6)) { conv ->
@@ -530,7 +531,14 @@ fun ShareSheet(creator: LiveCreator, onDismiss: () -> Unit) {
             targets.forEach { t ->
                 Column(
                     Modifier.clickable {
-                        if (t.label == "Copy link") { clipboard.setText(androidx.compose.ui.text.AnnotatedString(link)); toast("Link copied") } else toast("Opening ${t.label}…")
+                        when (t.label) {
+                            "Copy link" -> { copyText(ctx, link); toast("Link copied") }
+                            "WhatsApp" -> shareTo(ctx, "com.whatsapp", message)
+                            "Instagram" -> shareTo(ctx, "com.instagram.android", message)
+                            "Facebook" -> shareTo(ctx, "com.facebook.katana", message)
+                            else -> shareText(ctx, message)
+                        }
+                        onDismiss()
                     },
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {

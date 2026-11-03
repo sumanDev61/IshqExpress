@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.pager.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.text.*
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.outlined.*
@@ -318,7 +320,11 @@ fun VipScreen(onBack: () -> Unit) {
 fun DailyRewardsScreen(onBack: () -> Unit) {
     val nav = LocalNav.current
     val toast = LocalToast.current
-    var claimedToday by rememberSaveable { mutableStateOf(false) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // One check-in per calendar day, remembered across restarts.
+    val todayKey = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) }
+    var lastCheckIn by com.live.ishqexpress.data.rememberStringPref("checkIn", "")
+    val claimedToday = lastCheckIn == todayKey
     val streak = 4
     val rewards = listOf(5, 10, 15, 20, 30, 40, 100)
     ScreenScaffold("Daily rewards", onBack) {
@@ -342,7 +348,7 @@ fun DailyRewardsScreen(onBack: () -> Unit) {
                                 Column(
                                     Modifier.weight(if (day == 6) 2.1f else 1f).clip(RoundedCornerShape(16.dp))
                                         .then(if (today) Modifier.background(BrandBrush.primary) else Modifier.background(if (claimed) PinkTint else SurfaceMuted))
-                                        .clickable(enabled = today) { claimedToday = true; toast("+$coins coins claimed") }
+                                        .clickable(enabled = today) { lastCheckIn = todayKey; DemoWallet.coins += coins; toast("+$coins coins claimed") }
                                         .padding(vertical = 12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -359,7 +365,7 @@ fun DailyRewardsScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                PrimaryButton(if (claimedToday) "Come back tomorrow" else "Check in · +${rewards[streak]} coins", { claimedToday = true; toast("+${rewards[streak]} coins claimed") }, enabled = !claimedToday)
+                PrimaryButton(if (claimedToday) "Come back tomorrow" else "Check in · +${rewards[streak]} coins", { lastCheckIn = todayKey; DemoWallet.coins += rewards[streak]; toast("+${rewards[streak]} coins claimed") }, enabled = !claimedToday)
             }
             item { Text("More ways to earn", style = MaterialTheme.typography.titleMedium, color = Ink) }
             val tasks = listOf(
@@ -381,6 +387,7 @@ fun DailyRewardsScreen(onBack: () -> Unit) {
                         when {
                             title.contains("Follow", true) -> nav.push(Screen.Search)
                             title.contains("Share", true) || title.contains("Watch", true) || title.contains("gift", true) -> nav.push(Screen.LiveViewer, 1)
+                            title.contains("Invite", true) -> shareText(ctx, "Join me on ishqexpress — we both get 50 coins! ${AppLinks.invite("SUMAN-A2")}")
                             else -> toast("Opening task…")
                         }
                     }, height = 32.dp, color = BrandPink)
@@ -476,6 +483,22 @@ fun PayoutScreen(onBack: () -> Unit) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     var method by rememberSaveable { mutableIntStateOf(0) }
     var amount by rememberSaveable { mutableFloatStateOf(10_000f) }
+    var legalName by rememberSaveable { mutableStateOf("") }
+    var pan by rememberSaveable { mutableStateOf("") }
+    var account by rememberSaveable { mutableStateOf("") }
+    var ifsc by rememberSaveable { mutableStateOf("") }
+    var upi by rememberSaveable { mutableStateOf("") }
+    val kyc = com.live.ishqexpress.data.Session.kyc
+    // Format checks only; the server verifies PAN/bank/UPI with the provider (penny drop, VPA lookup).
+    val panOk = Regex("[A-Z]{5}[0-9]{4}[A-Z]").matches(pan)
+    val ifscOk = Regex("[A-Z]{4}0[A-Z0-9]{6}").matches(ifsc)
+    val accountOk = account.length in 9..18
+    val upiOk = Regex("[a-zA-Z0-9.\\-_]{2,}@[a-zA-Z]{2,}").matches(upi)
+    val stepValid = when (step) {
+        0 -> legalName.trim().length >= 3 && panOk && "doc" in kyc && "selfie" in kyc
+        1 -> if (method == 0) accountOk && ifscOk else upiOk
+        else -> true
+    }
     val steps = listOf("Verify ID", "Payout account", "Withdraw")
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPink, unfocusedBorderColor = Hairline, focusedLabelColor = BrandPink)
 
@@ -498,16 +521,19 @@ fun PayoutScreen(onBack: () -> Unit) {
                     Text("Verify your identity", style = MaterialTheme.typography.titleLarge, color = Ink)
                     Text("Required once by law before your first payout. Your documents are encrypted.", style = MaterialTheme.typography.bodyMedium, color = InkSecondary)
                     Spacer(Modifier.height(16.dp))
-                    OutlinedTextField("", {}, Modifier.fillMaxWidth(), label = { Text("Full legal name") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                    OutlinedTextField(legalName, { legalName = it.take(60) }, Modifier.fillMaxWidth(), label = { Text("Full legal name") }, supportingText = { Text("As on your PAN card") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField("", {}, Modifier.fillMaxWidth(), label = { Text("PAN number") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                    OutlinedTextField(pan, { pan = it.uppercase().filter(Char::isLetterOrDigit).take(10) }, Modifier.fillMaxWidth(), label = { Text("PAN number") }, placeholder = { Text("ABCDE1234F") },
+                        isError = pan.length == 10 && !panOk, supportingText = { if (pan.length == 10 && !panOk) Text("Check the PAN format") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters), singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
                     Spacer(Modifier.height(16.dp))
                     listOf(Icons.Rounded.Badge to "Upload Aadhaar / passport (front & back)", Icons.Rounded.Face to "Take a selfie for liveness check").forEachIndexed { kycStep, (icon, t) ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { nav.push(Screen.KycCapture, kycStep) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val done = (if (kycStep == 0) "doc" else "selfie") in kyc
                             Icon(icon, null, tint = BrandPink)
                             Spacer(Modifier.width(12.dp))
                             Text(t, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
-                            Icon(Icons.Rounded.ChevronRight, null, tint = InkTertiary)
+                            if (done) Icon(Icons.Rounded.CheckCircle, "Done", tint = Success) else Icon(Icons.Rounded.ChevronRight, null, tint = InkTertiary)
                         }
                     }
                 }
@@ -528,11 +554,14 @@ fun PayoutScreen(onBack: () -> Unit) {
                     }
                     Spacer(Modifier.height(12.dp))
                     if (method == 0) {
-                        OutlinedTextField("", {}, Modifier.fillMaxWidth(), label = { Text("Account number") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                        OutlinedTextField(account, { account = it.filter(Char::isDigit).take(18) }, Modifier.fillMaxWidth(), label = { Text("Account number") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
                         Spacer(Modifier.height(10.dp))
-                        OutlinedTextField("", {}, Modifier.fillMaxWidth(), label = { Text("IFSC code") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                        OutlinedTextField(ifsc, { ifsc = it.uppercase().filter(Char::isLetterOrDigit).take(11) }, Modifier.fillMaxWidth(), label = { Text("IFSC code") }, placeholder = { Text("HDFC0001234") },
+                            isError = ifsc.length == 11 && !ifscOk, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters), singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
                     } else {
-                        OutlinedTextField("", {}, Modifier.fillMaxWidth(), label = { Text("UPI ID") }, placeholder = { Text("name@bank") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
+                        OutlinedTextField(upi, { upi = it.trim().take(50) }, Modifier.fillMaxWidth(), label = { Text("UPI ID") }, placeholder = { Text("name@bank") },
+                            isError = upi.contains('@') && !upiOk, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
                     }
                 }
                 else -> {
@@ -554,14 +583,14 @@ fun PayoutScreen(onBack: () -> Unit) {
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    MenuRow(if (method == 0) Icons.Rounded.AccountBalance else Icons.Rounded.QrCode, if (method == 0) "HDFC Bank ••4821" else "suman@okhdfc", subtitle = "Payout account", modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceMuted))
+                    MenuRow(if (method == 0) Icons.Rounded.AccountBalance else Icons.Rounded.QrCode, if (method == 0) "Bank ••${account.takeLast(4)} · $ifsc" else upi, subtitle = "Payout account", modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceMuted))
                 }
             }
         }
         Box(Modifier.padding(20.dp).navigationBarsPadding()) {
             PrimaryButton(if (step < 2) "Continue" else "Request withdrawal", {
                 if (step < 2) step++ else { toast("Withdrawal requested"); nav.replace(Screen.PayoutHistory) }
-            })
+            }, enabled = stepValid)
         }
     }
 }
@@ -681,8 +710,9 @@ fun LeaderboardsScreen(onBack: () -> Unit) {
 fun AgencyScreen(onBack: () -> Unit) {
     val nav = LocalNav.current
     val toast = LocalToast.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    ScreenScaffold("Agency", onBack, actions = { TopAction(Icons.Rounded.PersonAdd, "Invite creator") { toast("Agency invite link copied") } }) {
+    ScreenScaffold("Agency", onBack, actions = { TopAction(Icons.Rounded.PersonAdd, "Invite creator") { shareText(ctx, "Join my agency on ishqexpress and start earning from your lives: ${AppLinks.invite("AGENCY-A2")}") } }) {
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             item {
                 GradientCard(Modifier.padding(16.dp).fillMaxWidth(), brush = Brush.linearGradient(listOf(Color(0xFF3B6FE0), Color(0xFF7A2BE8)))) {
@@ -729,7 +759,7 @@ fun AgencyScreen(onBack: () -> Unit) {
                                 Text("Your referral code", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                                 Text("SUMAN-A2", style = MaterialTheme.typography.titleLarge, color = Ink)
                             }
-                            SmallGradientButton("Share", { toast("Referral code copied") }, icon = Icons.Rounded.Share)
+                            SmallGradientButton("Share", { copyText(ctx, "SUMAN-A2"); shareText(ctx, "Join ishqexpress with my code SUMAN-A2 ${AppLinks.invite("SUMAN-A2")}") }, icon = Icons.Rounded.Share)
                         }
                     }
                     items(listOf(Triple(2, "Pending KYC", Gold), Triple(11, "Joined 28 Oct", Success), Triple(8, "Invited 26 Oct", InkTertiary), Triple(12, "Joined 12 Oct", Success))) { (id, status, color) ->

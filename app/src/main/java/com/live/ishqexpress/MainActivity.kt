@@ -20,7 +20,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import com.live.ishqexpress.data.Session
 import com.live.ishqexpress.ui.nav.AppHost
+import androidx.compose.runtime.LaunchedEffect
 import com.live.ishqexpress.ui.onboarding.InterestsScreen
 import com.live.ishqexpress.ui.onboarding.OtpScreen
 import com.live.ishqexpress.ui.onboarding.PermissionsScreen
@@ -34,6 +36,7 @@ import com.live.ishqexpress.ui.theme.IshqExpressTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Session.init(applicationContext)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
@@ -49,7 +52,9 @@ enum class Route { Splash, Welcome, Phone, Otp, Profile, Interests, Permissions,
 
 @Composable
 fun IshqApp() {
-    var route by rememberSaveable { mutableStateOf(Route.Splash) }
+    // Signed-in users skip onboarding; signing out (Settings) drops back to Welcome.
+    var route by rememberSaveable { mutableStateOf(if (Session.signedIn) Route.Home else Route.Splash) }
+    LaunchedEffect(Session.signedIn) { if (!Session.signedIn && route == Route.Home) route = Route.Welcome }
     var phone by rememberSaveable { mutableStateOf("") }
     var profile by remember { mutableStateOf(ProfileDraft()) }
     var interests by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -111,8 +116,8 @@ fun IshqApp() {
             )
             Route.Permissions -> PermissionsScreen(
                 onBack = { back(Route.Interests) },
-                onAllow = { route = Route.Home },
-                onSkip = { route = Route.Home }
+                onAllow = { Session.signIn(profile.name, profile.photo?.toString(), interests); route = Route.Home },
+                onSkip = { Session.signIn(profile.name, profile.photo?.toString(), interests); route = Route.Home }
             )
             Route.Home -> AppHost()
         }

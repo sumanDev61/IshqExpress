@@ -54,6 +54,8 @@ import com.live.ishqexpress.ui.social.PostCard
 fun MyProfileScreen() {
     val nav = LocalNav.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var showQr by remember { mutableStateOf(false) }
+    if (showQr) MyQrSheet { showQr = false }
     LazyColumn(Modifier.fillMaxSize().appBackground()) {
         item {
             Box(Modifier.fillMaxWidth()) {
@@ -61,7 +63,7 @@ fun MyProfileScreen() {
                     Box(Modifier.align(Alignment.TopEnd).offset(60.dp, (-40).dp).size(200.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)))
                 }
                 Row(Modifier.statusBarsPadding().fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
-                    TopAction(Icons.Rounded.QrCode2, "My QR", tint = Color.White) {}
+                    TopAction(Icons.Rounded.QrCode2, "My QR", tint = Color.White) { showQr = true }
                     TopAction(Icons.Outlined.Settings, "Settings", tint = Color.White) { nav.push(Screen.Settings) }
                 }
                 Column(Modifier.padding(top = 120.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -71,6 +73,8 @@ fun MyProfileScreen() {
                     }
                     Spacer(Modifier.height(10.dp))
                     Text(Me.name, style = MaterialTheme.typography.headlineSmall, color = Ink)
+                    val bio = com.live.ishqexpress.data.Session.bio
+                    if (bio.isNotBlank()) Text(bio, style = MaterialTheme.typography.bodySmall, color = InkSecondary, textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(horizontal = 32.dp, vertical = 2.dp))
                     Spacer(Modifier.height(4.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                         LevelBadge(Me.level, Modifier.clickable { nav.push(Screen.UserLevel) })
@@ -89,7 +93,7 @@ fun MyProfileScreen() {
         // Wallet
         item {
             Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                WalletTile("Coins", Me.coins, false, "Recharge", Modifier.weight(1f), listOf(Color(0xFFFFF4DA), Color(0xFFFFE6B0))) { nav.push(Screen.CoinStore) }
+                WalletTile("Coins", DemoWallet.coins, false, "Recharge", Modifier.weight(1f), listOf(Color(0xFFFFF4DA), Color(0xFFFFE6B0))) { nav.push(Screen.CoinStore) }
                 WalletTile("Diamonds", Me.diamonds, true, "Withdraw", Modifier.weight(1f), listOf(Color(0xFFFFE3F0), Color(0xFFEDE0FF))) { nav.push(Screen.Earnings) }
             }
         }
@@ -126,7 +130,7 @@ fun MyProfileScreen() {
         }
         item { Spacer(Modifier.height(12.dp)); UnderlineTabs(listOf("Posts", "Replays", "Badges"), tab, { tab = it }) }
         when (tab) {
-            0 -> item { PostGrid(samplePosts.filter { it.image != null }.map { it.image!! + 50 }) }
+            0 -> item { PostGrid(MyPosts.items.mapNotNull { it.media } + samplePosts.mapNotNull { it.image }.map { photo(it + 50, 300, 300) }) }
             1 -> item {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf("Sunday unplugged" to "1:12:48", "Diwali special" to "58:21", "PK vs Rohan" to "10:00").forEachIndexed { i, (t, d) ->
@@ -165,11 +169,11 @@ private fun WalletTile(label: String, amount: Int, diamond: Boolean, cta: String
 }
 
 @Composable
-private fun PostGrid(images: List<Int>) {
+private fun PostGrid(images: List<String>) {
     Column(Modifier.padding(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         images.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                row.forEach { AsyncImage(photo(it, 300, 300), null, contentScale = ContentScale.Crop, modifier = Modifier.weight(1f).aspectRatio(1f).background(SurfaceMuted)) }
+                row.forEach { AsyncImage(it, null, contentScale = ContentScale.Crop, modifier = Modifier.weight(1f).aspectRatio(1f).background(SurfaceMuted)) }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -200,6 +204,7 @@ private fun BadgeGrid() {
 fun OtherProfileScreen(creatorId: Int, onBack: () -> Unit) {
     val nav = LocalNav.current
     val toast = LocalToast.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val c = creatorById(creatorId)
     var following by rememberSaveable { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -311,10 +316,10 @@ fun OtherProfileScreen(creatorId: Int, onBack: () -> Unit) {
 
     if (showTiers) FanTierSheet(c) { showTiers = false }
     if (showMenu) IshqSheet({ showMenu = false }) {
-        MenuRow(Icons.Rounded.Share, "Share profile", onClick = { showMenu = false; toast("Profile link copied") })
+        MenuRow(Icons.Rounded.Share, "Share profile", onClick = { showMenu = false; shareText(ctx, "Check out ${c.name} on ishqexpress ${AppLinks.profile(c.id)}") })
         MenuRow(Icons.Rounded.Lock, "Request private show", onClick = { showMenu = false; nav.push(Screen.PrivateShow, c.id) })
         MenuRow(Icons.Rounded.NotificationsActive, "Live notifications", trailing = { IshqSwitch(true) {} })
-        MenuRow(Icons.Rounded.Block, "Block", iconTint = LiveRed, iconBg = LiveRed.copy(alpha = 0.1f), onClick = { showMenu = false; toast("${c.name} blocked") })
+        MenuRow(Icons.Rounded.Block, "Block", iconTint = LiveRed, iconBg = LiveRed.copy(alpha = 0.1f), onClick = { showMenu = false; com.live.ishqexpress.data.Session.block(c.id); toast("${c.name} blocked"); onBack() })
         MenuRow(Icons.Rounded.Flag, "Report", iconTint = LiveRed, iconBg = LiveRed.copy(alpha = 0.1f), onClick = { showMenu = false; showReport = true })
     }
     if (showReport) ReportSheet(c.name, { showReport = false }, { showReport = false; toast("Report sent") })
@@ -332,14 +337,21 @@ private fun CircleBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, onC
 @Composable
 fun EditProfileScreen(onBack: () -> Unit) {
     val toast = LocalToast.current
+    val session = com.live.ishqexpress.data.Session
     var name by rememberSaveable { mutableStateOf(Me.name) }
-    var bio by rememberSaveable { mutableStateOf("Music lover 🎶 Night owl 🌙") }
-    var city by rememberSaveable { mutableStateOf("Jaipur") }
-    val langs = remember { mutableStateListOf("Hindi", "English") }
-    val photos = remember { mutableStateListOf(Me.photo, 9, 16) }
+    var bio by rememberSaveable { mutableStateOf(session.bio) }
+    var city by rememberSaveable { mutableStateOf(session.city) }
+    val langs = remember { mutableStateListOf(*session.languages.toTypedArray()) }
+    val photos = remember { mutableStateListOf(*session.photos.ifEmpty { listOf(Me.avatarUrl) }.toTypedArray()) }
+    var replaceAt by remember { mutableIntStateOf(-1) }
+    val pick = rememberImagePicker { uri -> if (replaceAt in photos.indices) photos[replaceAt] = uri else if (photos.size < 6) photos.add(uri); replaceAt = -1 }
+    val save = {
+        if (name.trim().length < 2) toast("Name needs at least 2 letters")
+        else { session.updateProfile(name, bio, city, photos.toList(), langs.toList()); toast("Profile saved"); onBack() }
+    }
     val fieldColors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPink, unfocusedBorderColor = Hairline, focusedLabelColor = BrandPink)
 
-    ScreenScaffold("Edit profile", onBack, actions = { Text("Save", style = MaterialTheme.typography.titleSmall, color = BrandPink, modifier = Modifier.clickable { toast("Profile saved"); onBack() }.padding(12.dp)) }) {
+    ScreenScaffold("Edit profile", onBack, actions = { Text("Save", style = MaterialTheme.typography.titleSmall, color = BrandPink, modifier = Modifier.clickable { save() }.padding(12.dp)) }) {
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp)) {
             Text("Photos", style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.padding(vertical = 8.dp))
             Text("The first photo is your avatar. Add up to 6.", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
@@ -349,11 +361,11 @@ fun EditProfileScreen(onBack: () -> Unit) {
                     row.forEach { i ->
                         Box(Modifier.weight(1f).aspectRatio(0.8f).clip(RoundedCornerShape(14.dp)).background(SurfaceMuted).then(if (i == 0) Modifier.border(2.dp, BrandPink, RoundedCornerShape(14.dp)) else Modifier)) {
                             if (i < photos.size) {
-                                AsyncImage(avatar(photos[i]), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                AsyncImage(photos[i], null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clickable { replaceAt = i; pick() })
                                 if (i > 0) Icon(Icons.Rounded.Close, "Remove", tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)).clickable { photos.removeAt(i) }.padding(3.dp))
                                 if (i == 0) Text("Avatar", style = MaterialTheme.typography.labelSmall, color = Color.White, modifier = Modifier.align(Alignment.BottomCenter).padding(4.dp).clip(CircleShape).background(BrandPink).padding(horizontal = 6.dp, vertical = 2.dp))
                             } else {
-                                Icon(Icons.Rounded.Add, "Add photo", tint = InkTertiary, modifier = Modifier.align(Alignment.Center).clickable { photos.add(20 + i) })
+                                Icon(Icons.Rounded.Add, "Add photo", tint = InkTertiary, modifier = Modifier.align(Alignment.Center).size(48.dp).clip(CircleShape).clickable { replaceAt = -1; pick() }.padding(12.dp))
                             }
                         }
                     }
@@ -676,6 +688,34 @@ fun CreatorLevelScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Your profile as a scannable QR code, with share and copy. */
+@Composable
+private fun MyQrSheet(onDismiss: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val toast = LocalToast.current
+    val link = AppLinks.profile(80412337)
+    IshqSheet(onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Avatar(Me.avatarUrl, 64.dp)
+            Spacer(Modifier.height(8.dp))
+            Text(Me.name, style = MaterialTheme.typography.titleLarge, color = Ink)
+            Text(Me.id, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.size(220.dp).shadow(10.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(Color.White).padding(16.dp)) {
+                QrCode(link, Modifier.fillMaxSize())
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("Friends can scan this to follow you", style = MaterialTheme.typography.bodySmall, color = InkTertiary)
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SmallOutlineButton("Copy link", { copyText(ctx, link); toast("Link copied") }, Modifier.weight(1f), height = 48.dp, icon = Icons.Rounded.Link)
+                SmallGradientButton("Share", { shareText(ctx, "Follow me on ishqexpress: $link") }, Modifier.weight(1f), height = 48.dp, icon = Icons.Rounded.Share)
+            }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

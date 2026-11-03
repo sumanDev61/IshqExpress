@@ -118,6 +118,8 @@ fun ChatThreadScreen(conversationId: Int, onBack: () -> Unit) {
     val conv = sampleConversations.firstOrNull { it.id == conversationId } ?: sampleConversations.first()
     val cr = creatorById(conv.creator)
     val messages = remember { mutableStateListOf(*sampleMessages.toTypedArray()) }
+    val pickPhoto = rememberImagePicker { uri -> messages.add(Message(true, "", "now", imageUrl = uri)) }
+    val takePhoto = rememberCameraCapture { uri -> messages.add(Message(true, "", "now", imageUrl = uri)) }
     var draft by remember { mutableStateOf("") }
     var translate by remember { mutableStateOf(true) }
     var panel by remember { mutableIntStateOf(0) } // 0 none, 1 gifts, 2 attach
@@ -190,8 +192,8 @@ fun ChatThreadScreen(conversationId: Int, onBack: () -> Unit) {
             }
             AnimatedVisibility(panel == 2) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    AttachItem(Icons.Rounded.Image, "Photo", BrandPink) { messages.add(Message(true, "", "now", image = 300 + messages.size)); panel = 0 }
-                    AttachItem(Icons.Rounded.CameraAlt, "Camera", BrandViolet) { panel = 0 }
+                    AttachItem(Icons.Rounded.Image, "Photo", BrandPink) { panel = 0; pickPhoto() }
+                    AttachItem(Icons.Rounded.CameraAlt, "Camera", BrandViolet) { panel = 0; takePhoto() }
                     AttachItem(Icons.Rounded.PhotoLibrary, "Media pack", BrandOrchid) { panel = 0; nav.push(Screen.MediaPacks) }
                     AttachItem(Icons.Rounded.Call, "Call", Success) { panel = 0; nav.push(Screen.VideoCall, cr.id) }
                 }
@@ -218,7 +220,7 @@ private fun Bubble(m: Message, translate: Boolean) {
                 Text(m.gift, fontSize = 44.sp)
                 Text(if (m.mine) "You sent a gift" else "Sent you a gift", style = MaterialTheme.typography.labelSmall, color = BrandPinkDark)
             }
-            m.image != null -> AsyncImage(photo(m.image, 400, 500), null, contentScale = ContentScale.Crop, modifier = Modifier.width(200.dp).aspectRatio(0.8f).clip(RoundedCornerShape(18.dp)))
+            m.image != null || m.imageUrl != null -> AsyncImage(m.imageUrl ?: photo(m.image ?: 0, 400, 500), null, contentScale = ContentScale.Crop, modifier = Modifier.width(200.dp).aspectRatio(0.8f).clip(RoundedCornerShape(18.dp)))
             else -> Column(
                 Modifier.widthIn(max = 280.dp).clip(shape).then(if (m.mine) Modifier.background(BrandBrush.primary) else Modifier.background(Canvas)).padding(horizontal = 14.dp, vertical = 9.dp)
             ) {
@@ -310,6 +312,7 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
     var mic by remember { mutableStateOf(true) }
     var cam by remember { mutableStateOf(true) }
     var translate by remember { mutableStateOf(false) }
+    RequestOnEnter(Perms.video) { cam = false; toast("Camera is off — allow it in Android settings to be seen") }
     var filter by remember { mutableIntStateOf(0) }
     var showExtend by remember { mutableStateOf(false) }
     var swapped by remember { mutableStateOf(false) }
@@ -321,7 +324,8 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
     LaunchedEffect(blockLeft) { if (perMinute != null && blockLeft == 60) showExtend = true }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        VideoBackdrop(if (swapped) photo(77, 900, 1600) else c.imageUrl.replace("600", "900"), c.tint, scrim = true)
+        if (swapped && cam) CameraBackdrop(CameraState.front, c.tint, photo(77, 900, 1600))
+        else VideoBackdrop(if (swapped) photo(77, 900, 1600) else c.imageUrl.replace("600", "900"), c.tint, scrim = true)
         if (!connected) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).blur(20.dp))
 
         // Self preview
@@ -330,7 +334,8 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
                 .size(width = 104.dp, height = 150.dp).shadow(8.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Color.DarkGray)
                 .clickable { swapped = !swapped }
         ) {
-            if (cam) AsyncImage(if (swapped) c.imageUrl else photo(77, 300, 450), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (cam && !swapped) SelfCameraTile(photo(77, 300, 450), front = CameraState.front)
+            else if (cam) AsyncImage(c.imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.VideocamOff, null, tint = Color.White) }
             if (filter > 0) Text(listOf("", "🐰", "👑", "🕶️")[filter], fontSize = 30.sp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp))
         }
@@ -401,6 +406,7 @@ fun GroupCallScreen() {
     val people = remember { mutableStateListOf(1, 3, 4, 6, 9, 10, 12, 5) }
     var mic by remember { mutableStateOf(true) }
     var cam by remember { mutableStateOf(true) }
+    RequestOnEnter(Perms.video) { cam = false }
     var seconds by remember { mutableIntStateOf(0) }
     var speaking by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(1000); seconds++; if (seconds % 2 == 0) speaking = (speaking + 1) % (people.size + 1) } }
@@ -424,7 +430,8 @@ fun GroupCallScreen() {
                         .then(if (i == speaking) Modifier.border(2.5.dp, BrandPink, RoundedCornerShape(14.dp)) else Modifier)
                 ) {
                     if (id == null && !cam) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Avatar(Me.avatarUrl, 56.dp) }
-                    else AsyncImage(if (id == null) photo(77, 300, 400) else creatorById(id).imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else if (id == null) SelfCameraTile(photo(77, 300, 400), front = CameraState.front)
+                    else AsyncImage(creatorById(id).imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     Row(Modifier.align(Alignment.BottomStart).padding(6.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                         if ((id == null && !mic) || i == 3) { Icon(Icons.Rounded.MicOff, null, tint = LiveRed, modifier = Modifier.size(11.dp)); Spacer(Modifier.width(3.dp)) }
                         Text(if (id == null) "You" else creatorById(id).name.substringBefore(' '), style = MaterialTheme.typography.labelSmall, color = Color.White)
@@ -435,7 +442,7 @@ fun GroupCallScreen() {
         Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             GlassButton(if (mic) Icons.Rounded.Mic else Icons.Rounded.MicOff, "Mic", { mic = !mic }, size = 52.dp, highlighted = !mic)
             GlassButton(if (cam) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, "Camera", { cam = !cam }, size = 52.dp, highlighted = !cam)
-            GlassButton(Icons.Rounded.Cameraswitch, "Flip", {}, size = 52.dp)
+            GlassButton(Icons.Rounded.Cameraswitch, "Flip", { CameraState.front = !CameraState.front }, size = 52.dp)
             Box(Modifier.size(62.dp).clip(CircleShape).background(LiveRed).clickable { nav.pop() }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.CallEnd, "Leave", tint = Color.White, modifier = Modifier.size(28.dp)) }
         }
     }

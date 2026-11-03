@@ -116,8 +116,10 @@ fun ProfileSetupScreen(
     onContinue: () -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Copy the picked photo into app storage: picker uris can stop working after a restart.
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) onChange(draft.copy(photo = uri))
+        if (uri != null) onChange(draft.copy(photo = Uri.parse(com.live.ishqexpress.data.Session.importImage(context, uri))))
     }
     val age = draft.birthdayMillis?.let(::ageFrom)
     val underAge = age != null && age < 18
@@ -430,6 +432,17 @@ fun PermissionsScreen(
     onSkip: () -> Unit,
 ) {
     var granted by remember { mutableStateOf(setOf("Camera", "Microphone", "Notifications")) }
+    val gate = com.live.ishqexpress.ui.common.rememberPermissionGate()
+    val P = com.live.ishqexpress.ui.common.Perms
+    // Ask Android for the switched-on ones; continue whatever the user answers.
+    val allow = {
+        val wanted = buildList {
+            if ("Camera" in granted) add(P.camera)
+            if ("Microphone" in granted) add(P.mic)
+            if ("Notifications" in granted) P.notifications?.let { add(it) }
+        }
+        gate.request(wanted) { onAllow() }
+    }
 
     OnboardingFrame(
         title = "A few quick permissions",
@@ -437,7 +450,7 @@ fun PermissionsScreen(
         onBack = onBack,
         step = 3,
         footer = {
-            PrimaryButton("Allow & start exploring", onAllow)
+            PrimaryButton("Allow & start exploring", allow)
             SecondaryButton("Not now", onSkip)
         }
     ) {

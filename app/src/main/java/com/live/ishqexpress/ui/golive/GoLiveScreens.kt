@@ -72,13 +72,16 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
     var fee by rememberSaveable { mutableIntStateOf(500) }
     var hideLocation by rememberSaveable { mutableStateOf(false) }
     var shareOnStart by rememberSaveable { mutableStateOf(true) }
-    var frontCamera by rememberSaveable { mutableStateOf(true) }
     var trySkin by rememberSaveable { mutableIntStateOf(RoomSkinState.selected) }
     var beautyTab by remember { mutableStateOf<Int?>(null) }
     var showPremium by remember { mutableStateOf(false) }
     var buySkin by remember { mutableStateOf<RoomSkin?>(null) }
     var countdown by remember { mutableIntStateOf(0) }
     val live = LiveType.entries[type]
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val gate = rememberPermissionGate()
+    var cover by com.live.ishqexpress.data.rememberStringPref("liveCover", "")
+    val pickCover = rememberImagePicker { cover = it }
     val tags = when (live) { LiveType.Video -> sampleCategories.map { "${it.emoji} ${it.label}" }; LiveType.Party -> videoPartyTags; LiveType.Audio -> partyTags }
 
     LaunchedEffect(countdown) {
@@ -92,24 +95,35 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
         }
     }
 
-    fun start() {
+    fun begin() {
         val skin = roomSkins[trySkin]
         if (live != LiveType.Video && skin.id !in RoomSkinState.owned) { buySkin = skin; return }
         if (live != LiveType.Video) RoomSkinState.selected = trySkin
         countdown = 3
+    }
+    var denied by remember { mutableIntStateOf(0) }
+    fun start() {
+        // Video modes need camera + mic, chat party only the mic. After a second refusal Android
+        // stops showing the dialog, so send the user to the app's settings page instead.
+        gate.request(if (live == LiveType.Audio) Perms.audio else Perms.video) { ok ->
+            if (ok) begin() else {
+                toast(if (live == LiveType.Audio) "Allow the microphone to start a chat party" else "Allow camera and microphone to go live")
+                if (++denied >= 2) openAppSettings(context)
+            }
+        }
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Backdrop: camera preview for video modes, the room skin for chat party.
         when (live) {
             LiveType.Audio -> SkinBackdrop(roomSkins[trySkin], Modifier.fillMaxSize())
-            else -> VideoBackdrop(photo(if (frontCamera) 77 else 78, 900, 1600), brandPair)
+            else -> CameraBackdrop(CameraState.front, brandPair, photo(if (CameraState.front) 77 else 78, 900, 1600))
         }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.55f))))
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (live != LiveType.Audio) GlassButton(Icons.Rounded.Cameraswitch, "Flip camera", { frontCamera = !frontCamera })
+                if (live != LiveType.Audio) GlassButton(Icons.Rounded.Cameraswitch, "Flip camera", { CameraState.front = !CameraState.front })
                 Spacer(Modifier.weight(1f))
                 GlassButton(Icons.Rounded.Close, "Close", onBack)
             }
@@ -121,8 +135,8 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
                 // Cover, title, location, share
                 GlassPanel {
                     Row {
-                        Box(Modifier.size(92.dp).clip(RoundedCornerShape(14.dp)).clickable { toast("Pick a cover photo") }) {
-                            AsyncImage(Me.avatarUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        Box(Modifier.size(92.dp).clip(RoundedCornerShape(14.dp)).clickable { pickCover() }) {
+                            AsyncImage(cover.ifEmpty { Me.avatarUrl }, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                             FitText("Change cover", MaterialTheme.typography.labelSmall, color = Color.White, textAlign = TextAlign.Center,
                                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.55f)).padding(vertical = 4.dp))
                         }
@@ -147,12 +161,12 @@ fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
                                 ) {
                                     Icon(if (hideLocation) Icons.Rounded.LocationOff else Icons.Rounded.LocationOn, null, tint = Color.White, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text(if (hideLocation) "Hidden" else "Jaipur", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                    Text(if (hideLocation) "Hidden" else com.live.ishqexpress.data.Session.city.ifBlank { "Jaipur" }, style = MaterialTheme.typography.labelSmall, color = Color.White)
                                 }
                                 Spacer(Modifier.weight(1f))
                                 ShareToggle(Icons.Rounded.Share, shareOnStart) { shareOnStart = !shareOnStart }
                                 Spacer(Modifier.width(6.dp))
-                                ShareToggle(Icons.Rounded.Link, false) { toast("Room link copied") }
+                                ShareToggle(Icons.Rounded.Link, false) { copyText(context, AppLinks.room(title.ifBlank { Me.name })); toast("Room link copied") }
                             }
                         }
                     }
@@ -483,7 +497,7 @@ fun BroadcasterScreen(audioOnly: Boolean) {
         when {
             partyOn -> PartyGrid()
             audioOnly -> Box(Modifier.fillMaxSize().background(NightBrush), contentAlignment = Alignment.Center) { AudioPulse(Me.avatarUrl, mic) }
-            else -> VideoBackdrop(photo(77, 900, 1600), brandPair)
+            else -> CameraBackdrop(CameraState.front, brandPair, photo(77, 900, 1600))
         }
 
         GiftEffectsLayer(effects, faceAnchor = androidx.compose.ui.geometry.Offset(0.5f, 0.3f))
@@ -593,7 +607,7 @@ private fun PartyGrid() {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 row.forEach { id ->
                     Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(12.dp))) {
-                        AsyncImage(if (id == null) photo(77, 400, 500) else creatorById(id).imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        if (id == null) SelfCameraTile(photo(77, 400, 500), front = CameraState.front) else AsyncImage(creatorById(id).imageUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         Text(
                             if (id == null) "You (host)" else creatorById(id).name.substringBefore(' '),
                             style = MaterialTheme.typography.labelSmall, color = Color.White,
@@ -609,12 +623,13 @@ private fun PartyGrid() {
 @Composable
 private fun PartyHostPanel(on: Boolean, onDismiss: () -> Unit, onToggle: (Boolean) -> Unit) {
     val toast = LocalToast.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val requests = remember { mutableStateListOf(2, 11, 8) }
     val guests = remember { mutableStateListOf(3, 9, 10) }
     val muted = remember { mutableStateListOf(9) }
     IshqSheet(onDismiss, title = "Live Party") {
         ToggleRow(Icons.Rounded.Groups, "Party mode", on, onToggle, subtitle = "Up to 4 people on stage")
-        SectionLabel("On stage (${guests.size}/3)", action = "Invite", onAction = { toast("Invite link copied") })
+        SectionLabel("On stage (${guests.size}/3)", action = "Invite", onAction = { shareText(ctx, "Join me on stage in my ishqexpress live! ${AppLinks.live(0)}") })
         guests.forEach { id ->
             val c = creatorById(id)
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -736,7 +751,7 @@ fun BattleScreen(opponent: Int) {
             Box(Modifier.fillMaxWidth().aspectRatio(1.25f)) {
                 Row(Modifier.fillMaxSize()) {
                     Box(Modifier.weight(1f).fillMaxHeight()) {
-                        AsyncImage(photo(77, 400, 600), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        SelfCameraTile(photo(77, 400, 600), front = CameraState.front)
                         Text("You", style = MaterialTheme.typography.labelMedium, color = Color.White, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
                     }
                     Spacer(Modifier.width(2.dp))
@@ -823,7 +838,7 @@ fun DualBroadcastScreen(partner: Int) {
     val comments = remember { mutableStateListOf(*sampleLiveComments.toTypedArray()) }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Row(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxHeight()) { VideoBackdrop(photo(77, 500, 1000), brandPair) }
+            Box(Modifier.weight(1f).fillMaxHeight()) { CameraBackdrop(CameraState.front, brandPair, photo(77, 500, 1000)) }
             Box(Modifier.width(2.dp).fillMaxHeight().background(BrandBrush.deep))
             Box(Modifier.weight(1f).fillMaxHeight()) { VideoBackdrop(other.imageUrl, other.tint) }
         }
@@ -938,6 +953,7 @@ private fun ModeratorSheet(onDismiss: () -> Unit) {
 fun LiveSummaryScreen() {
     val nav = LocalNav.current
     val toast = LocalToast.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize().appBackground().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().background(BrandBrush.deep).statusBarsPadding().padding(24.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -980,7 +996,7 @@ fun LiveSummaryScreen() {
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding()) {
             PrimaryButton("Done", { nav.popToRoot() })
-            SmallOutlineButton("Share highlights", { toast("Highlights link copied") }, Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp), height = 50.dp, icon = Icons.Rounded.Share)
+            SmallOutlineButton("Share highlights", { shareText(ctx, "My live on ishqexpress just ended — watch the highlights ${AppLinks.replay(0)}") }, Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp), height = 50.dp, icon = Icons.Rounded.Share)
         }
     }
 }

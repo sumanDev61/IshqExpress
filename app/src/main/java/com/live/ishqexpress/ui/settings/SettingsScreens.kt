@@ -47,15 +47,22 @@ fun SettingsScreen(onBack: () -> Unit) {
     val nav = LocalNav.current
     val toast = LocalToast.current
     var sheet by remember { mutableStateOf<SettingsSheet?>(null) }
-    var language by rememberSaveable { mutableStateOf("English") }
-    var autoTranslate by rememberSaveable { mutableStateOf(true) }
-    var privateAccount by rememberSaveable { mutableStateOf(false) }
-    var hideLocation by rememberSaveable { mutableStateOf(false) }
-    var invisible by rememberSaveable { mutableStateOf(false) }
-    var liveAlerts by rememberSaveable { mutableStateOf(true) }
-    var msgAlerts by rememberSaveable { mutableStateOf(true) }
-    var giftAlerts by rememberSaveable { mutableStateOf(true) }
-    var whoCanMessage by rememberSaveable { mutableIntStateOf(0) }
+    var language by com.live.ishqexpress.data.rememberStringPref("language", "English")
+    var autoTranslate by com.live.ishqexpress.data.rememberFlag("autoTranslate", true)
+    var privateAccount by com.live.ishqexpress.data.rememberFlag("privateAccount", false)
+    var hideLocation by com.live.ishqexpress.data.rememberFlag("hideLocation", false)
+    var invisible by com.live.ishqexpress.data.rememberFlag("invisible", false)
+    var liveAlerts by com.live.ishqexpress.data.rememberFlag("liveAlerts", true)
+    var msgAlerts by com.live.ishqexpress.data.rememberFlag("msgAlerts", true)
+    var giftAlerts by com.live.ishqexpress.data.rememberFlag("giftAlerts", true)
+    var whoCanMessage by com.live.ishqexpress.data.rememberIntPref("whoCanMessage", 0)
+    val gate = rememberPermissionGate()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Android 13+ needs the notification permission before any alert can show.
+    fun askNotify() {
+        val p = Perms.notifications ?: return
+        gate.request(listOf(p)) { ok -> if (!ok) toast("Notifications are off — turn them on in Android settings") }
+    }
 
     ScreenScaffold("Settings", onBack) {
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
@@ -80,12 +87,12 @@ fun SettingsScreen(onBack: () -> Unit) {
             item {
                 MenuRow(Icons.Rounded.Chat, "Who can message me", trailingText = listOf("Everyone", "Followers", "Nobody")[whoCanMessage], onClick = { whoCanMessage = (whoCanMessage + 1) % 3 })
             }
-            item { MenuRow(Icons.Rounded.Block, "Blocked users", trailingText = "3", onClick = { sheet = SettingsSheet.Blocked }) }
+            item { MenuRow(Icons.Rounded.Block, "Blocked users", trailingText = "${com.live.ishqexpress.data.Session.blocked.size}", onClick = { sheet = SettingsSheet.Blocked }) }
 
             item { Group("Notifications") }
-            item { ToggleRow(Icons.Rounded.Videocam, "Creators going live", liveAlerts, { liveAlerts = it }) }
-            item { ToggleRow(Icons.Rounded.ChatBubble, "Messages", msgAlerts, { msgAlerts = it }) }
-            item { ToggleRow(Icons.Rounded.CardGiftcard, "Gifts and fans", giftAlerts, { giftAlerts = it }) }
+            item { ToggleRow(Icons.Rounded.Videocam, "Creators going live", liveAlerts, { liveAlerts = it; if (it) askNotify() }) }
+            item { ToggleRow(Icons.Rounded.ChatBubble, "Messages", msgAlerts, { msgAlerts = it; if (it) askNotify() }) }
+            item { ToggleRow(Icons.Rounded.CardGiftcard, "Gifts and fans", giftAlerts, { giftAlerts = it; if (it) askNotify() }) }
 
             item { Group("Support") }
             item { MenuRow(Icons.Rounded.SupportAgent, "Help & support", onClick = { nav.push(Screen.Help) }) }
@@ -112,26 +119,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
-        SettingsSheet.Blocked -> {
-            val blocked = remember { mutableStateListOf(2, 8, 11) }
-            IshqSheet({ sheet = null }, title = "Blocked users") {
-                if (blocked.isEmpty()) EmptyState("🙌", "No one blocked", "People you block can't see your lives or message you.")
-                blocked.toList().forEach { id ->
-                    val c = creatorById(id)
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(c.imageUrl, 42.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(c.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
-                        SmallOutlineButton("Unblock", { blocked.remove(id) }, height = 32.dp)
-                    }
-                }
-            }
-        }
+        SettingsSheet.Blocked -> BlockedUsersSheet { sheet = null }
         SettingsSheet.Logout -> IshqSheet({ sheet = null }) {
             Column(Modifier.padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Log out of ishqexpress?", style = MaterialTheme.typography.titleLarge, color = Ink)
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Log out", { sheet = null; toast("Logged out (demo)") })
+                PrimaryButton("Log out", { sheet = null; com.live.ishqexpress.data.Session.signOut() })
                 SmallOutlineButton("Cancel", { sheet = null }, Modifier.fillMaxWidth().padding(top = 8.dp), height = 50.dp)
             }
         }
@@ -150,7 +143,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     Spacer(Modifier.height(14.dp))
                     Box(
                         Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(16.dp)).background(if (confirm == "DELETE") LiveRed else DisabledFill)
-                            .clickable(enabled = confirm == "DELETE") { sheet = null; toast("Deletion scheduled (demo)") },
+                            .clickable(enabled = confirm == "DELETE") { sheet = null; toast("Account scheduled for deletion"); com.live.ishqexpress.data.Session.signOut() },
                         contentAlignment = Alignment.Center
                     ) { Text("Delete my account", style = MaterialTheme.typography.labelLarge, color = if (confirm == "DELETE") Color.White else InkTertiary) }
                 }
@@ -166,7 +159,7 @@ private fun Group(title: String) {
 
 /* ============================== 68 · Help & support ============================== */
 
-private data class SupportMsg(val mine: Boolean, val text: String, val options: List<String> = emptyList())
+private data class SupportMsg(val mine: Boolean, val text: String, val options: List<String> = emptyList(), val image: String? = null)
 
 @Composable
 fun HelpScreen(onBack: () -> Unit) {
@@ -189,10 +182,19 @@ private fun ColumnScope.SupportChat() {
     val state = rememberLazyListState()
     LaunchedEffect(msgs.size, typing) { state.animateScrollToItem((msgs.size + if (typing) 1 else 0).coerceAtLeast(1) - 1) }
 
+    val nav = LocalNav.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     fun send(text: String) {
+        // Quick replies that belong to another screen go there; the rest go to the assistant.
+        when (text) {
+            "Open safety centre" -> { nav.push(Screen.SafetyCentre); return }
+            "Check payout status" -> { nav.push(Screen.PayoutHistory); return }
+            "Find my order ID" -> { nav.push(Screen.Transactions); return }
+        }
         msgs.add(SupportMsg(true, text))
         typing = true
     }
+    val attach = rememberImagePicker { uri -> msgs.add(SupportMsg(true, "Screenshot attached", image = uri)); typing = true }
     LaunchedEffect(typing) {
         if (typing) {
             delay(1200)
@@ -201,7 +203,9 @@ private fun ColumnScope.SupportChat() {
                 "coin" in last -> SupportMsg(false, "Sorry about that! Coins usually arrive within 5 minutes. If it's been longer, share your Google Play order ID (starts with GPA.) and we'll add them manually.", listOf("Find my order ID", "Talk to a person"))
                 "payout" in last -> SupportMsg(false, "Payouts are processed on the 1st and arrive in 3–5 business days. Rejected payouts are usually a name mismatch with your KYC.", listOf("Check payout status", "Talk to a person"))
                 "report" in last -> SupportMsg(false, "You can report anyone from their profile or the ⋯ menu in a live. For urgent safety issues we respond within 1 hour.", listOf("Open safety centre", "Talk to a person"))
-                "person" in last -> SupportMsg(false, "Connecting you to our support team… Average wait is 4 minutes. You can leave this screen — we'll notify you.")
+                "person" in last -> SupportMsg(false, "Connecting you to our support team… Average wait is 4 minutes. You can leave this screen — we'll notify you.", listOf("Email support instead"))
+                "email" in last -> { emailSupport(context, "Help with my account (${Me.id})"); SupportMsg(false, "Opened your email app. Include your ${Me.id} so we can find your account.") }
+                "screenshot" in last -> SupportMsg(false, "Thanks, the screenshot is attached to your ticket. What happened just before this?", listOf("Talk to a person"))
                 else -> SupportMsg(false, "Got it. Can you tell me a bit more? A support agent will also see this conversation.", listOf("Talk to a person"))
             }
             msgs.add(reply)
@@ -214,7 +218,8 @@ private fun ColumnScope.SupportChat() {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = if (m.mine) Alignment.End else Alignment.Start) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     if (!m.mine) { Box(Modifier.size(30.dp).clip(CircleShape).background(BrandBrush.deep), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SupportAgent, null, tint = Color.White, modifier = Modifier.size(18.dp)) }; Spacer(Modifier.width(6.dp)) }
-                    Text(
+                    if (m.image != null) AsyncImage(m.image, "Screenshot", contentScale = ContentScale.Crop, modifier = Modifier.size(140.dp, 200.dp).clip(RoundedCornerShape(16.dp)))
+                    else Text(
                         m.text, style = MaterialTheme.typography.bodyMedium, color = if (m.mine) Color.White else Ink,
                         modifier = Modifier.widthIn(max = 280.dp).clip(RoundedCornerShape(18.dp)).then(if (m.mine) Modifier.background(BrandBrush.primary) else Modifier.background(Canvas)).padding(horizontal = 14.dp, vertical = 10.dp)
                     )
@@ -239,7 +244,7 @@ private fun ColumnScope.SupportChat() {
                 if (draft.isEmpty()) Text("Describe your issue…", style = MaterialTheme.typography.bodyMedium, color = InkTertiary)
                 BasicTextField(draft, { draft = it }, singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink), cursorBrush = androidx.compose.ui.graphics.SolidColor(BrandPink), modifier = Modifier.fillMaxWidth())
             }
-            Icon(Icons.Rounded.AttachFile, "Attach screenshot", tint = InkTertiary, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.AttachFile, "Attach screenshot", tint = InkTertiary, modifier = Modifier.size(32.dp).clip(CircleShape).clickable(enabled = !typing) { attach() }.padding(6.dp))
         }
         Spacer(Modifier.width(8.dp))
         Box(
@@ -270,6 +275,24 @@ private fun Faq() {
                     Icon(if (open == i) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = InkSecondary)
                 }
                 if (open == i) { Spacer(Modifier.height(8.dp)); Text(a, style = MaterialTheme.typography.bodyMedium, color = InkSecondary) }
+            }
+        }
+    }
+}
+
+/** People you blocked, with Unblock. Used by Settings and the Safety centre. */
+@Composable
+fun BlockedUsersSheet(onDismiss: () -> Unit) {
+    val blocked = com.live.ishqexpress.data.Session.blocked
+    IshqSheet(onDismiss, title = "Blocked users") {
+        if (blocked.isEmpty()) EmptyState("🙌", "No one blocked", "People you block can't see your lives or message you.")
+        blocked.toList().forEach { id ->
+            val c = creatorById(id)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(c.imageUrl, 42.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(c.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                SmallOutlineButton("Unblock", { com.live.ishqexpress.data.Session.unblock(id) }, height = 32.dp)
             }
         }
     }
