@@ -1,5 +1,6 @@
 package com.live.ishqexpress.ui.components
 
+import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
@@ -200,7 +201,7 @@ fun OnboardingFrame(
     Column(
         modifier
             .fillMaxSize()
-            .background(Canvas)
+            .appBackground()
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()

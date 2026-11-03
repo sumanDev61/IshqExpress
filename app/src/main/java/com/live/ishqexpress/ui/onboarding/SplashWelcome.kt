@@ -1,5 +1,6 @@
 package com.live.ishqexpress.ui.onboarding
 
+import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -174,7 +175,7 @@ fun WelcomeScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Canvas)
+            .appBackground()
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {

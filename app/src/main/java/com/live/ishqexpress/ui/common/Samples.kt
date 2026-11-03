@@ -93,6 +93,7 @@ val sampleGifts = listOf(
 
     Gift(22, "💗", "Love storm", 699, GiftTab.Motion, GiftKind.Motion, MotionStyle.Hearts, video = "gifts/love_storm.mp4"),
     Gift(23, "🌀", "Galaxy portal", 1_499, GiftTab.Motion, GiftKind.Motion, MotionStyle.Portal, video = "gifts/galaxy_portal.mp4"),
+    Gift(29, "💏", "Love couple", 2_499, GiftTab.Motion, GiftKind.Motion, MotionStyle.Hearts, video = "gifts/love_couple.mp4"),
     Gift(7, "🏎️", "Sports car", 1_999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Car),
     Gift(18, "🎆", "Fireworks", 999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Fireworks),
     Gift(15, "🐉", "Dragon", 2_999, GiftTab.Motion, GiftKind.Motion, MotionStyle.Dragon),

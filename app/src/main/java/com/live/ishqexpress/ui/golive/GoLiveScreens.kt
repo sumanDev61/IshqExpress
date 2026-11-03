@@ -1,5 +1,6 @@
 package com.live.ishqexpress.ui.golive
 
+import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -769,7 +770,7 @@ private fun ModeratorSheet(onDismiss: () -> Unit) {
 fun LiveSummaryScreen() {
     val nav = LocalNav.current
     val toast = LocalToast.current
-    Column(Modifier.fillMaxSize().background(Canvas).verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().appBackground().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().background(BrandBrush.deep).statusBarsPadding().padding(24.dp)) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(Me.avatarUrl, 84.dp, ring = true)

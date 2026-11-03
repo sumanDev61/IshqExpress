@@ -111,6 +111,28 @@ import com.live.ishqexpress.ui.wallet.PayoutScreen
 import com.live.ishqexpress.ui.wallet.TransactionsScreen
 import com.live.ishqexpress.ui.wallet.VipScreen
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import com.live.ishqexpress.ui.common.Bubble3D
+import com.live.ishqexpress.ui.common.BubbleGlyph
+import com.live.ishqexpress.ui.common.FitText
+import com.live.ishqexpress.ui.common.GlossyIcon
+import com.live.ishqexpress.ui.common.Ramp
+import com.live.ishqexpress.ui.common.Ramps
+import com.live.ishqexpress.ui.theme.BrandViolet
+import com.live.ishqexpress.ui.theme.appBackground
 
 /** Screens that open from the bottom (full-screen modal feel) rather than sliding in from the side. */
 private val modalScreens = setOf(
@@ -175,7 +197,7 @@ fun AppHost() {
 private fun stateKey(dest: Dest, depth: Int) = "$depth:${dest.screen}:${dest.arg}"
 
 @Composable
-private fun Render(dest: Dest) {
+internal fun Render(dest: Dest) {
     val nav = LocalNav.current
     val back: () -> Unit = { nav.pop() }
     when (dest.screen) {
@@ -228,12 +250,12 @@ private fun Render(dest: Dest) {
 private enum class Tab { Home, Explore, Chats, Me }
 
 @Composable
-private fun MainShell() {
+internal fun MainShell(initialTab: Int = 0) {
     val nav = LocalNav.current
-    var tab by rememberSaveable { mutableIntStateOf(Tab.Home.ordinal) }
+    var tab by rememberSaveable { mutableIntStateOf(initialTab) }
     BackHandler(enabled = tab != Tab.Home.ordinal) { tab = Tab.Home.ordinal }
 
-    Column(Modifier.fillMaxSize().background(Canvas)) {
+    Column(Modifier.fillMaxSize().appBackground()) {
         Box(Modifier.weight(1f)) {
             when (Tab.entries[tab]) {
                 Tab.Home -> HomeScreen()
@@ -252,67 +274,105 @@ private fun MainShell() {
 
 @Composable
 private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit, onGoLive: () -> Unit) {
-    Column(Modifier.background(Canvas)) {
-        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+    val barShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+    Box(Modifier.fillMaxWidth()) {
         Row(
             Modifier
+                .padding(top = 16.dp)
                 .fillMaxWidth()
+                .shadow(18.dp, barShape, ambientColor = BrandPink.copy(alpha = 0.35f), spotColor = BrandViolet.copy(alpha = 0.55f))
+                .clip(barShape)
+                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFFFF5FA))))
+                .drawBehind {
+                    // Brand hairline along the top edge.
+                    drawRect(Brush.horizontalGradient(listOf(BrandPink.copy(alpha = 0.0f), BrandPink.copy(alpha = 0.55f), BrandViolet.copy(alpha = 0.55f), BrandViolet.copy(alpha = 0f))), size = Size(size.width, 1.dp.toPx()))
+                }
                 .navigationBarsPadding()
-                .height(64.dp)
-                .padding(horizontal = 8.dp),
+                .height(66.dp)
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavItem(Icons.Rounded.Home, Icons.Outlined.Home, "Home", selected == Tab.Home, Modifier.weight(1f)) { onSelect(Tab.Home) }
-            NavItem(Icons.Rounded.Explore, Icons.Outlined.Explore, "Explore", selected == Tab.Explore, Modifier.weight(1f)) { onSelect(Tab.Explore) }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(width = 56.dp, height = 40.dp)
-                        .shadow(10.dp, RoundedCornerShape(14.dp), spotColor = BrandPink, ambientColor = BrandOrchid)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(BrandBrush.deep)
-                        .clickable(onClick = onGoLive),
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Rounded.Videocam, "Go live", tint = Color.White, modifier = Modifier.size(24.dp)) }
+            NavItem(Icons.Rounded.Home, "Home", Ramps.home, selected == Tab.Home, Modifier.weight(1f)) { onSelect(Tab.Home) }
+            NavItem(Icons.Rounded.Explore, "Explore", Ramps.explore, selected == Tab.Explore, Modifier.weight(1f)) { onSelect(Tab.Explore) }
+            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                FitText("Go Live", MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, brush = BrandBrush.text), Modifier.padding(bottom = 5.dp))
             }
-            NavItem(Icons.Rounded.ChatBubble, Icons.Outlined.ChatBubbleOutline, "Messages", selected == Tab.Chats, Modifier.weight(1f), badge = 3) { onSelect(Tab.Chats) }
-            NavItem(Icons.Rounded.Person, Icons.Outlined.Person, "Me", selected == Tab.Me, Modifier.weight(1f)) { onSelect(Tab.Me) }
+            NavItem(Icons.Rounded.ChatBubble, "Messages", Ramps.chats, selected == Tab.Chats, Modifier.weight(1f), badge = 3) { onSelect(Tab.Chats) }
+            NavItem(Icons.Rounded.Person, "Me", Ramps.me, selected == Tab.Me, Modifier.weight(1f)) { onSelect(Tab.Me) }
         }
+        GoLiveOrb(onGoLive, Modifier.align(Alignment.TopCenter).offset(y = (-10).dp))
+    }
+}
+
+/** Raised 3D "Go live" button that sits above the bar with a slow pulsing halo. */
+@Composable
+private fun GoLiveOrb(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val pulse = rememberInfiniteTransition(label = "orb").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(2_200, easing = LinearEasing)), label = "pulse"
+    )
+    Box(modifier.size(74.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(56.dp).graphicsLayer {
+                val p = pulse.value
+                scaleX = 1f + p * 0.32f; scaleY = scaleX; alpha = (1f - p) * 0.55f
+            }.clip(CircleShape).background(Brush.radialGradient(listOf(BrandPink.copy(alpha = 0.6f), BrandViolet.copy(alpha = 0f))))
+        )
+        Bubble3D(
+            Ramps.live,
+            Modifier.size(56.dp).border(3.dp, Color.White, CircleShape).clickable(onClick = onClick),
+            shape = CircleShape, elevation = 14.dp
+        ) { BubbleGlyph(Icons.Rounded.Videocam, 28.dp, "Go live") }
     }
 }
 
 @Composable
 private fun NavItem(
-    iconSelected: ImageVector,
     icon: ImageVector,
     label: String,
+    ramp: Ramp,
     selected: Boolean,
     modifier: Modifier = Modifier,
     badge: Int? = null,
     onClick: () -> Unit,
 ) {
+    val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, spring(dampingRatio = 0.55f, stiffness = 500f), label = "lift")
+    val scale by animateFloatAsState(if (selected) 1f else 0.92f, spring(dampingRatio = 0.55f, stiffness = 500f), label = "scale")
     Column(
-        modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier.fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Box {
-            Icon(if (selected) iconSelected else icon, label, tint = if (selected) BrandPink else InkTertiary, modifier = Modifier.size(26.dp))
+        Box(Modifier.height(38.dp).offset(y = lift).graphicsLayer { scaleX = scale; scaleY = scale }, contentAlignment = Alignment.Center) {
+            if (selected) {
+                Bubble3D(ramp, Modifier.size(width = 48.dp, height = 36.dp), RoundedCornerShape(14.dp), elevation = 9.dp) { BubbleGlyph(icon, 22.dp, label) }
+            } else {
+                GlossyIcon(icon, ramp, 27.dp, Modifier.graphicsLayer { alpha = 0.85f }, contentDescription = label)
+            }
             if (badge != null) {
                 Text(
                     "$badge",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
                     color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 8.dp, y = (-4).dp)
+                        .offset(x = 6.dp, y = (-1).dp)
+                        .shadow(3.dp, CircleShape, spotColor = LiveRed)
                         .clip(CircleShape)
-                        .background(LiveRed)
-                        .border(1.5.dp, Canvas, CircleShape)
+                        .background(Brush.verticalGradient(listOf(Color(0xFFFF6B88), LiveRed)))
+                        .border(1.5.dp, Color.White, CircleShape)
                         .padding(horizontal = 5.dp, vertical = 1.dp)
                 )
             }
         }
-        Spacer(Modifier.height(3.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), color = if (selected) BrandPink else InkTertiary)
+        Spacer(Modifier.height(2.dp))
+        FitText(
+            label,
+            MaterialTheme.typography.labelMedium.copy(
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                brush = if (selected) ramp.diagonal else null,
+            ),
+            color = if (selected) Color.Unspecified else InkTertiary,
+        )
     }
 }

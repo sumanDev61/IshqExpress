@@ -40,6 +40,8 @@ android {
                 // Screenshot tests write PNGs to app/build/outputs/roborazzi
                 it.systemProperty("roborazzi.test.record", "true")
                 it.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+                // ./gradlew testDebugUnitTest -Pscreens=Wallet,home renders a subset in AppScreensScreenshotTest
+                (project.findProperty("screens") as String?)?.let { p -> it.systemProperty("screens", p) }
             }
         }
     }

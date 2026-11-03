@@ -1,5 +1,8 @@
 package com.live.ishqexpress.ui.common
 
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import com.live.ishqexpress.ui.theme.appBackground
 import android.app.Activity
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -112,7 +115,7 @@ fun ScreenScaffold(
     Column(
         modifier
             .fillMaxSize()
-            .background(Canvas)
+            .appBackground()
             .statusBarsPadding()
     ) {
         TopBar(title, onBack, actions)
@@ -365,7 +368,7 @@ fun SmallGradientButton(text: String, onClick: () -> Unit, modifier: Modifier = 
             Icon(icon, null, tint = Color.White, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
         }
-        Text(text, style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = Color.White)
+        FitText(text, MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = Color.White, minSize = 10.sp)
     }
 }
 
@@ -385,7 +388,7 @@ fun SmallOutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = M
             Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
         }
-        Text(text, style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = color)
+        FitText(text, MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp), color = color, minSize = 10.sp)
     }
 }
 
@@ -466,9 +469,8 @@ fun MenuRow(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(iconBg), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = iconTint, modifier = Modifier.size(20.dp))
-        }
+        // 3D tile in the row's accent colour (a white glyph on a coloured bg keeps that colour).
+        IconTile3D(icon, if (iconTint == Color.White || iconTint == Color.Unspecified) iconBg else iconTint, size = 38.dp, glyph = 20.dp)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = Ink)
@@ -505,11 +507,13 @@ fun IshqSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
 
 @Composable
 fun IshqCard(modifier: Modifier = Modifier, padding: Dp = 16.dp, background: Color = Canvas, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
     Column(
         modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(background)
-            .border(1.dp, Hairline, RoundedCornerShape(20.dp))
+            .shadow(8.dp, shape, ambientColor = BrandViolet.copy(alpha = 0.10f), spotColor = BrandViolet.copy(alpha = 0.16f))
+            .clip(shape)
+            .background(if (background == Canvas) Brush.verticalGradient(listOf(Color.White, Color(0xFFFFFBFD))) else androidx.compose.ui.graphics.SolidColor(background))
+            .border(1.dp, Color.White.copy(alpha = 0.9f), shape)
             .padding(padding),
         content = content
     )
@@ -517,10 +521,17 @@ fun IshqCard(modifier: Modifier = Modifier, padding: Dp = 16.dp, background: Col
 
 @Composable
 fun GradientCard(modifier: Modifier = Modifier, brush: Brush = BrandBrush.deep, padding: Dp = 18.dp, content: @Composable BoxScope.() -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
     Box(
         modifier
-            .clip(RoundedCornerShape(22.dp))
+            .shadow(14.dp, shape, ambientColor = BrandPink.copy(alpha = 0.35f), spotColor = BrandViolet.copy(alpha = 0.6f))
+            .clip(shape)
             .background(brush)
+            .drawWithContent {
+                drawContent()
+                // Glass sheen across the top for a raised, 3D card.
+                drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.22f), 0.35f to Color.White.copy(alpha = 0.04f), 0.36f to Color.Transparent))
+            }
     ) {
         Box(Modifier.align(Alignment.TopEnd).offset(x = 40.dp, y = (-50).dp).size(160.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)))
         Box(Modifier.align(Alignment.BottomEnd).offset(x = (-30).dp, y = 60.dp).size(110.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.07f)))
@@ -531,8 +542,8 @@ fun GradientCard(modifier: Modifier = Modifier, brush: Brush = BrandBrush.deep, 
 @Composable
 fun Stat(value: String, label: String, modifier: Modifier = Modifier, color: Color = Ink, labelColor: Color = InkSecondary) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleLarge, color = color)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = labelColor)
+        FitText(value, MaterialTheme.typography.titleLarge, color = color, minSize = 11.sp, textAlign = TextAlign.Center)
+        FitText(label, MaterialTheme.typography.bodySmall, color = labelColor, minSize = 8.sp, textAlign = TextAlign.Center)
     }
 }
 

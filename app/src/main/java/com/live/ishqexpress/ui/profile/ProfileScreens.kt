@@ -1,5 +1,6 @@
 package com.live.ishqexpress.ui.profile
 
+import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -53,7 +54,7 @@ import com.live.ishqexpress.ui.social.PostCard
 fun MyProfileScreen() {
     val nav = LocalNav.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    LazyColumn(Modifier.fillMaxSize().background(Canvas)) {
+    LazyColumn(Modifier.fillMaxSize().appBackground()) {
         item {
             Box(Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().height(190.dp).background(BrandBrush.deep)) {
@@ -114,11 +115,9 @@ fun MyProfileScreen() {
                     Row {
                         row.forEach { s ->
                             Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable { nav.push(s.go) }.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(s.color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                                    Icon(s.icon, null, tint = s.color, modifier = Modifier.size(22.dp))
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                Text(s.label, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp), color = Ink, maxLines = 1)
+                                IconTile3D(s.icon, s.color, size = 44.dp, glyph = 22.dp)
+                                Spacer(Modifier.height(7.dp))
+                                FitText(s.label, MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp), Modifier.padding(horizontal = 2.dp), color = Ink, minSize = 8.sp)
                             }
                         }
                     }
@@ -210,7 +209,7 @@ fun OtherProfileScreen(creatorId: Int, onBack: () -> Unit) {
     val liked = remember { mutableStateListOf<Int>() }
     val isLive = c.id % 2 == 1
 
-    Box(Modifier.fillMaxSize().background(Canvas)) {
+    Box(Modifier.fillMaxSize().appBackground()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
             item {
                 Box {
@@ -219,11 +218,12 @@ fun OtherProfileScreen(creatorId: Int, onBack: () -> Unit) {
                     Column(Modifier.padding(top = 160.dp).fillMaxWidth().padding(horizontal = 20.dp)) {
                         Row(verticalAlignment = Alignment.Bottom) {
                             Avatar(c.imageUrl, 100.dp, Modifier.border(4.dp, Canvas, CircleShape).clickable { if (isLive) nav.push(Screen.LiveViewer, c.id) }, live = isLive)
-                            Spacer(Modifier.weight(1f))
-                            Row(Modifier.padding(bottom = 6.dp)) {
-                                Stat((c.viewers * 7).compact(), "Followers", Modifier.padding(horizontal = 10.dp).clickable { nav.push(Screen.Follows, 0) })
-                                Stat("${c.id * 31}", "Following", Modifier.padding(horizontal = 10.dp))
-                                Stat((c.viewers * 15).compact(), "Diamonds", Modifier.padding(start = 10.dp))
+                            Spacer(Modifier.width(8.dp))
+                            // Shares the row with the avatar: each stat gets an equal slice and shrinks to fit.
+                            Row(Modifier.weight(1f).padding(bottom = 6.dp)) {
+                                Stat((c.viewers * 7).compact(), "Followers", Modifier.weight(1f).clickable { nav.push(Screen.Follows, 0) })
+                                Stat("${c.id * 31}", "Following", Modifier.weight(1f))
+                                Stat((c.viewers * 15).compact(), "Diamonds", Modifier.weight(1f))
                             }
                         }
                         Spacer(Modifier.height(10.dp))

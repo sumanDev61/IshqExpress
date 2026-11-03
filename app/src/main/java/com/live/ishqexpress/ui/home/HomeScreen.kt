@@ -1,5 +1,6 @@
 package com.live.ishqexpress.ui.home
 
+import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -116,7 +117,7 @@ fun HomeScreen() {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Canvas)
+            .appBackground()
             .statusBarsPadding()
     ) {
         HomeTopBar(onAction = onAction)

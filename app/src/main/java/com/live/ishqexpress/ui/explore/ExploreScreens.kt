@@ -1,5 +1,6 @@
 package com.live.ishqexpress.ui.explore
 
+import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -44,7 +45,7 @@ fun ExploreScreen() {
     val nav = LocalNav.current
     var category by rememberSaveable { mutableIntStateOf(-1) }
 
-    Column(Modifier.fillMaxSize().background(Canvas).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().appBackground().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 10.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Explore", style = MaterialTheme.typography.headlineSmall, color = Ink, modifier = Modifier.weight(1f))
             TopAction(Icons.Outlined.EmojiEvents, "Leaderboards") { nav.push(Screen.Leaderboards) }
@@ -188,7 +189,7 @@ fun SearchScreen(onBack: () -> Unit) {
     val recent = remember { mutableStateListOf("Aanya", "#Shayari", "PK battle") }
     val following = remember { mutableStateListOf<Int>() }
 
-    Column(Modifier.fillMaxSize().background(Canvas).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().appBackground().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             TopAction(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onClick = onBack)
             Row(
