@@ -144,6 +144,7 @@ private fun PackTile(p: CoinPack, firstPurchase: Boolean, modifier: Modifier, on
 
 @Composable
 private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> Unit, onPaid: (Int) -> Unit) {
+    val nav = LocalNav.current
     val toast = LocalToast.current
     val doubled = firstPurchase && p.tag?.startsWith("First") == true
     val total = (if (doubled) p.coins * 2 else p.coins) + p.bonus
@@ -180,7 +181,7 @@ private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> 
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    MenuRow(Icons.Rounded.CreditCard, "UPI · suman@okhdfc", subtitle = "Change payment method", onClick = {}, modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceMuted))
+                    MenuRow(Icons.Rounded.CreditCard, "UPI · suman@okhdfc", subtitle = "Change payment method", onClick = { nav.push(Screen.PaymentMethods) }, modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceMuted))
                     Spacer(Modifier.height(16.dp))
                     PrimaryButton("Buy · ${p.price}", { state = 1 })
                 }
@@ -315,6 +316,7 @@ fun VipScreen(onBack: () -> Unit) {
 
 @Composable
 fun DailyRewardsScreen(onBack: () -> Unit) {
+    val nav = LocalNav.current
     val toast = LocalToast.current
     var claimedToday by rememberSaveable { mutableStateOf(false) }
     val streak = 4
@@ -375,7 +377,13 @@ fun DailyRewardsScreen(onBack: () -> Unit) {
                     }
                     CoinAmount(coins)
                     Spacer(Modifier.width(10.dp))
-                    SmallOutlineButton("Go", { toast("Opening task…") }, height = 32.dp, color = BrandPink)
+                    SmallOutlineButton("Go", {
+                        when {
+                            title.contains("Follow", true) -> nav.push(Screen.Search)
+                            title.contains("Share", true) || title.contains("Watch", true) || title.contains("gift", true) -> nav.push(Screen.LiveViewer, 1)
+                            else -> toast("Opening task…")
+                        }
+                    }, height = 32.dp, color = BrandPink)
                 }
             }
         }
@@ -494,8 +502,8 @@ fun PayoutScreen(onBack: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField("", {}, Modifier.fillMaxWidth(), label = { Text("PAN number") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors)
                     Spacer(Modifier.height(16.dp))
-                    listOf(Icons.Rounded.Badge to "Upload Aadhaar / passport (front & back)", Icons.Rounded.Face to "Take a selfie for liveness check").forEach { (icon, t) ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { toast("Camera opens here") }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    listOf(Icons.Rounded.Badge to "Upload Aadhaar / passport (front & back)", Icons.Rounded.Face to "Take a selfie for liveness check").forEachIndexed { kycStep, (icon, t) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { nav.push(Screen.KycCapture, kycStep) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(icon, null, tint = BrandPink)
                             Spacer(Modifier.width(12.dp))
                             Text(t, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
@@ -613,7 +621,7 @@ fun LeaderboardsScreen(onBack: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             GlassButton(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onBack)
             Text("Rankings", style = MaterialTheme.typography.titleLarge, color = Color.White, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            GlassButton(Icons.Rounded.HelpOutline, "Rules", {})
+            GlassButton(Icons.Rounded.HelpOutline, "Rules", { nav.push(Screen.RankingRules) })
         }
         UnderlineTabs(listOf("Top creators", "Top gifters"), board, { board = it }, dark = true)
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).padding(3.dp)) {
@@ -671,6 +679,7 @@ fun LeaderboardsScreen(onBack: () -> Unit) {
 
 @Composable
 fun AgencyScreen(onBack: () -> Unit) {
+    val nav = LocalNav.current
     val toast = LocalToast.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
     ScreenScaffold("Agency", onBack, actions = { TopAction(Icons.Rounded.PersonAdd, "Invite creator") { toast("Agency invite link copied") } }) {
@@ -733,8 +742,8 @@ fun AgencyScreen(onBack: () -> Unit) {
                         }
                     }
                 }
-                2 -> items(listOf("November 2026" to "₹12,480 · in progress", "October 2026" to "₹34,120 · paid 5 Nov", "September 2026" to "₹28,900 · paid 5 Oct", "August 2026" to "₹19,300 · paid 5 Sep")) { (m, v) ->
-                    MenuRow(Icons.Rounded.CalendarMonth, m, subtitle = v, iconTint = BattleBlue, iconBg = BattleBlue.copy(alpha = 0.1f), onClick = {})
+                2 -> itemsIndexed(listOf("November 2026" to "₹12,480 · in progress", "October 2026" to "₹34,120 · paid 5 Nov", "September 2026" to "₹28,900 · paid 5 Oct", "August 2026" to "₹19,300 · paid 5 Sep")) { monthIndex, (m, v) ->
+                    MenuRow(Icons.Rounded.CalendarMonth, m, subtitle = v, iconTint = BattleBlue, iconBg = BattleBlue.copy(alpha = 0.1f), onClick = { nav.push(Screen.AgencyStatement, monthIndex) })
                 }
                 else -> {
                     val tiers = listOf(Triple("A1", "Up to ₹2L / month", "8% commission"), Triple("A2", "₹2L – ₹5L", "10% · agency ribbon"), Triple("A3", "₹5L – ₹15L", "12% · custom gift"), Triple("A4", "₹15L+", "Up to 15% · dedicated manager"))

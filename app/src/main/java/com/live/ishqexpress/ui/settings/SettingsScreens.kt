@@ -61,8 +61,8 @@ fun SettingsScreen(onBack: () -> Unit) {
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
             item { Group("Account") }
             item { MenuRow(Icons.Rounded.Person, "Edit profile", onClick = { nav.push(Screen.EditProfile) }) }
-            item { MenuRow(Icons.Rounded.Phone, "Phone number", trailingText = "+91 98••• ••210", onClick = {}) }
-            item { MenuRow(Icons.Rounded.Link, "Linked accounts", trailingText = "Google", onClick = {}) }
+            item { MenuRow(Icons.Rounded.Phone, "Phone number", trailingText = "+91 98••• ••210", onClick = { nav.push(Screen.PhoneNumber) }) }
+            item { MenuRow(Icons.Rounded.Link, "Linked accounts", trailingText = "Google", onClick = { nav.push(Screen.LinkedAccounts) }) }
             item { MenuRow(Icons.Rounded.Star, "My subscriptions", onClick = { nav.push(Screen.Subscriptions) }) }
 
             item { Group("Language & translation") }
@@ -89,9 +89,9 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { Group("Support") }
             item { MenuRow(Icons.Rounded.SupportAgent, "Help & support", onClick = { nav.push(Screen.Help) }) }
-            item { MenuRow(Icons.Rounded.Shield, "Safety centre", onClick = { nav.push(Screen.Help) }) }
-            item { MenuRow(Icons.Rounded.Description, "Terms & privacy policy", onClick = {}) }
-            item { MenuRow(Icons.Rounded.Info, "About", trailingText = "v1.0 (1)") }
+            item { MenuRow(Icons.Rounded.Shield, "Safety centre", onClick = { nav.push(Screen.SafetyCentre) }) }
+            item { MenuRow(Icons.Rounded.Description, "Terms & privacy policy", onClick = { nav.push(Screen.Legal, 0) }) }
+            item { MenuRow(Icons.Rounded.Info, "About", trailingText = "v1.0 (1)", onClick = { nav.push(Screen.About) }) }
 
             item { Group("Testing") }
             item { MenuRow(Icons.Rounded.PhoneCallback, "Simulate incoming call", subtitle = "Preview screen 50", onClick = { nav.push(Screen.IncomingCall, 1) }) }

@@ -275,7 +275,7 @@ fun OtherProfileScreen(creatorId: Int, onBack: () -> Unit) {
                 }
                 1 -> item {
                     Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        sampleCreators.filter { it.id != c.id }.take(2).forEach { MiniLiveTile(it.copy(name = c.name, photo = c.photo), Modifier.weight(1f)) { toast("Replay coming soon") } }
+                        sampleCreators.filter { it.id != c.id }.take(2).forEach { MiniLiveTile(it.copy(name = c.name, photo = c.photo), Modifier.weight(1f)) { nav.push(Screen.Replay, c.id) } }
                     }
                 }
                 else -> item {

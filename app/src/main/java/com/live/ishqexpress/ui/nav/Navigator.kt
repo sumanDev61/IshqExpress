@@ -54,6 +54,17 @@ enum class Screen {
     Crowns,          // extra
     CreatorLevel,    // extra
     Agency,          // extra
+    PhoneNumber,     // settings → phone
+    LinkedAccounts,  // settings → linked accounts
+    Legal,           // terms / privacy / community (arg = tab)
+    About,
+    SafetyCentre,
+    PaymentMethods,  // payout methods (UPI, bank)
+    KycCapture,      // arg 0 = document, 1 = selfie
+    RankingRules,
+    Replay,          // arg = creator id
+    AgencyStatement, // arg = month index
+    OfficialTalent,
 }
 
 /** [arg] carries a single id (creator, post, room, conversation) or a tab index. */

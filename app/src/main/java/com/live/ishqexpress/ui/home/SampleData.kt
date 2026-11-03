@@ -54,6 +54,18 @@ val samplePromos = listOf(
     Promo("Daily check-in", "Claim free coins every day", "Claim", "💎", listOf(Color(0xFFFF6A88), Color(0xFFFF2E8B))),
 )
 
+/** Posters for the slider that appears mid-feed, after the first rows of lives. */
+val sampleMidPromos = listOf(
+    Promo("PK League · Season 3", "Top 16 creators battle for 1M coins", "Watch PK", "⚔️", listOf(Color(0xFF3B6FE0), Color(0xFF7A2BE8))),
+    Promo("Achievers of 2026", "Rich list rewards · 1 Nov – 31 Dec", "See ranks", "🏆", listOf(Color(0xFFFFB020), Color(0xFFFF5A5F))),
+    Promo("Join an agency", "Get a manager and up to 15% bonus", "Apply", "🤝", listOf(Color(0xFF12B76A), Color(0xFF0BA5A5))),
+)
+
+/** Regions for the Global filter on the home feed. */
+val feedRegions = listOf(
+    "🌏" to "Global", "🇮🇳" to "India", "🇦🇪" to "Middle East", "🇸🇬" to "Southeast Asia", "🇬🇧" to "Europe", "🇺🇸" to "Americas",
+)
+
 fun Int.compact(): String = when {
     this >= 1_000_000 -> String.format("%.1fM", this / 1_000_000f)
     this >= 1_000 -> String.format("%.1fK", this / 1_000f)

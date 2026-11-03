@@ -339,6 +339,8 @@ fun CreatePostScreen(onBack: () -> Unit) {
     var fansOnly by rememberSaveable { mutableStateOf(false) }
     var tier by rememberSaveable { mutableIntStateOf(1) }
     var allowComments by rememberSaveable { mutableStateOf(true) }
+    var location by rememberSaveable { mutableStateOf<String?>("Jaipur, Rajasthan") }
+    var pickLocation by remember { mutableStateOf(false) }
 
     ScreenScaffold(
         "New post", onBack,
@@ -383,7 +385,8 @@ fun CreatePostScreen(onBack: () -> Unit) {
                 }
             }
             ToggleRow(Icons.Outlined.ChatBubbleOutline, "Allow comments", allowComments, { allowComments = it })
-            MenuRow(Icons.Rounded.LocationOn, "Add location", trailingText = "Jaipur", onClick = {})
+            MenuRow(Icons.Rounded.LocationOn, if (location == null) "Add location" else location!!, trailingText = if (location == null) null else "Change", onClick = { pickLocation = true })
+            if (pickLocation) com.live.ishqexpress.ui.more.LocationPickerSheet(location, onDismiss = { pickLocation = false }, onPick = { location = it; pickLocation = false })
             MenuRow(Icons.Rounded.Tag, "Add hashtags", onClick = { text += " #DiwaliLive" })
         }
     }

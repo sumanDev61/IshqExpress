@@ -138,6 +138,7 @@ import com.live.ishqexpress.ui.theme.appBackground
 private val modalScreens = setOf(
     Screen.LiveViewer, Screen.GoLiveSetup, Screen.IncomingCall, Screen.VideoCall,
     Screen.GroupCall, Screen.PrivateShow, Screen.CreatePost, Screen.Match, Screen.VideoParty, Screen.AudioRoom,
+    Screen.KycCapture, Screen.Replay,
 )
 
 @Composable
@@ -242,6 +243,17 @@ internal fun Render(dest: Dest) {
         Screen.Crowns -> CrownsScreen(back)
         Screen.CreatorLevel -> CreatorLevelScreen(back)
         Screen.Agency -> AgencyScreen(back)
+        Screen.PhoneNumber -> com.live.ishqexpress.ui.more.PhoneNumberScreen(back)
+        Screen.LinkedAccounts -> com.live.ishqexpress.ui.more.LinkedAccountsScreen(back)
+        Screen.Legal -> com.live.ishqexpress.ui.more.LegalScreen(startTab = dest.arg, onBack = back)
+        Screen.About -> com.live.ishqexpress.ui.more.AboutScreen(back)
+        Screen.SafetyCentre -> com.live.ishqexpress.ui.more.SafetyCentreScreen(back)
+        Screen.PaymentMethods -> com.live.ishqexpress.ui.more.PaymentMethodsScreen(back)
+        Screen.KycCapture -> com.live.ishqexpress.ui.more.KycCaptureScreen(selfie = dest.arg == 1, onBack = back)
+        Screen.RankingRules -> com.live.ishqexpress.ui.more.RankingRulesScreen(back)
+        Screen.Replay -> com.live.ishqexpress.ui.more.ReplayPlayerScreen(creatorId = dest.arg, onBack = back)
+        Screen.AgencyStatement -> com.live.ishqexpress.ui.more.AgencyStatementScreen(month = dest.arg, onBack = back)
+        Screen.OfficialTalent -> com.live.ishqexpress.ui.more.OfficialTalentScreen(back)
     }
 }
 

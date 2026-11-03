@@ -52,28 +52,39 @@ import kotlinx.coroutines.delay
  */
 
 private enum class LiveType(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Video("Video", Icons.Rounded.Videocam), Party("Video party", Icons.Rounded.Groups), Audio("Chat party", Icons.Rounded.Mic)
+    Video("Live", Icons.Rounded.Videocam), Audio("Chat Party", Icons.Rounded.Mic), Party("Video Party", Icons.Rounded.Groups)
 }
 
 /* ============================== 21 · Go Live setup ============================== */
 
+private val partyTags = listOf("Chat", "Music", "Be friends", "Romantic", "Emotional", "Singing", "Shayari", "Games", "Late night")
+private val videoPartyTags = listOf("Dance", "Talk", "Be friends", "Games", "Singing", "Comedy")
+
 @Composable
-fun GoLiveSetupScreen(onBack: () -> Unit) {
+fun GoLiveSetupScreen(onBack: () -> Unit, initialType: Int = 0) {
     DarkSystemBars()
     val nav = LocalNav.current
+    val toast = LocalToast.current
     var title by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableIntStateOf(0) }
-    var type by rememberSaveable { mutableIntStateOf(0) }
+    var type by rememberSaveable { mutableIntStateOf(initialType) }
+    var tag by rememberSaveable { mutableIntStateOf(0) }
     var premium by rememberSaveable { mutableStateOf(false) }
     var fee by rememberSaveable { mutableIntStateOf(500) }
-    var showBeauty by remember { mutableStateOf(false) }
+    var hideLocation by rememberSaveable { mutableStateOf(false) }
+    var shareOnStart by rememberSaveable { mutableStateOf(true) }
+    var frontCamera by rememberSaveable { mutableStateOf(true) }
+    var trySkin by rememberSaveable { mutableIntStateOf(RoomSkinState.selected) }
+    var beautyTab by remember { mutableStateOf<Int?>(null) }
     var showPremium by remember { mutableStateOf(false) }
+    var buySkin by remember { mutableStateOf<RoomSkin?>(null) }
     var countdown by remember { mutableIntStateOf(0) }
+    val live = LiveType.entries[type]
+    val tags = when (live) { LiveType.Video -> sampleCategories.map { "${it.emoji} ${it.label}" }; LiveType.Party -> videoPartyTags; LiveType.Audio -> partyTags }
 
     LaunchedEffect(countdown) {
         if (countdown > 0) {
             delay(800)
-            if (countdown == 1) when (LiveType.entries[type]) {
+            if (countdown == 1) when (live) {
                 LiveType.Video -> nav.replace(Screen.Broadcaster, 0)
                 LiveType.Party -> nav.replace(Screen.VideoParty, 0)
                 LiveType.Audio -> nav.replace(Screen.AudioRoom, 0)
@@ -81,93 +92,172 @@ fun GoLiveSetupScreen(onBack: () -> Unit) {
         }
     }
 
+    fun start() {
+        val skin = roomSkins[trySkin]
+        if (live != LiveType.Video && skin.id !in RoomSkinState.owned) { buySkin = skin; return }
+        if (live != LiveType.Video) RoomSkinState.selected = trySkin
+        countdown = 3
+    }
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (LiveType.entries[type] == LiveType.Audio) {
-            Box(Modifier.fillMaxSize().background(NightBrush), contentAlignment = Alignment.Center) {
-                Avatar(Me.avatarUrl, 120.dp, ring = true)
-            }
-        } else VideoBackdrop(photo(77, 900, 1600), brandPair)
+        // Backdrop: camera preview for video modes, the room skin for chat party.
+        when (live) {
+            LiveType.Audio -> SkinBackdrop(roomSkins[trySkin], Modifier.fillMaxSize())
+            else -> VideoBackdrop(photo(if (frontCamera) 77 else 78, 900, 1600), brandPair)
+        }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.5f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.55f))))
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                GlassButton(Icons.Rounded.Close, "Close", onBack)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (live != LiveType.Audio) GlassButton(Icons.Rounded.Cameraswitch, "Flip camera", { frontCamera = !frontCamera })
                 Spacer(Modifier.weight(1f))
-                GlassButton(Icons.Rounded.Cameraswitch, "Flip camera", {})
+                GlassButton(Icons.Rounded.Close, "Close", onBack)
             }
-            // Setup card
+
             Column(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.4f)).padding(14.dp)
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(14.dp))) {
-                        AsyncImage(Me.avatarUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        Text("Change cover", style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp), color = Color.White, textAlign = TextAlign.Center,
-                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.5f)).padding(vertical = 3.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Box(Modifier.weight(1f)) {
-                        if (title.isEmpty()) Text("Add a title to get more viewers…", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.55f))
-                        BasicTextField(
-                            title, { if (it.length <= 60) title = it },
-                            textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White),
-                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                // Cover, title, location, share
+                GlassPanel {
+                    Row {
+                        Box(Modifier.size(92.dp).clip(RoundedCornerShape(14.dp)).clickable { toast("Pick a cover photo") }) {
+                            AsyncImage(Me.avatarUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            FitText("Change cover", MaterialTheme.typography.labelSmall, color = Color.White, textAlign = TextAlign.Center,
+                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.55f)).padding(vertical = 4.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f).height(92.dp)) {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                if (title.isEmpty()) Text(
+                                    if (live == LiveType.Video) "Add a title to get more viewers…" else "Name your room…",
+                                    style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.55f)
+                                )
+                                BasicTextField(
+                                    title, { if (it.length <= 60) title = it },
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = Color.White),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.14f)).clickable { hideLocation = !hideLocation }.padding(horizontal = 9.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(if (hideLocation) Icons.Rounded.LocationOff else Icons.Rounded.LocationOn, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(if (hideLocation) "Hidden" else "Jaipur", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                }
+                                Spacer(Modifier.weight(1f))
+                                ShareToggle(Icons.Rounded.Share, shareOnStart) { shareOnStart = !shareOnStart }
+                                Spacer(Modifier.width(6.dp))
+                                ShareToggle(Icons.Rounded.Link, false) { toast("Room link copied") }
+                            }
+                        }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    itemsIndexed(sampleCategories) { i, c ->
-                        Text(
-                            "${c.emoji} ${c.label}", style = MaterialTheme.typography.labelMedium, color = Color.White,
-                            modifier = Modifier.clip(CircleShape)
-                                .then(if (i == category) Modifier.background(BrandBrush.primary) else Modifier.background(Color.White.copy(alpha = 0.15f)))
-                                .clickable { category = i }.padding(horizontal = 12.dp, vertical = 7.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { showPremium = true }.padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Rounded.Key, null, tint = Gold, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Premium broadcast", style = MaterialTheme.typography.titleSmall, color = Color.White)
-                        Text(if (premium) "Ticket: ${fee.grouped()} coins" else "Charge an entry ticket", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
-                    }
-                    IshqSwitch(premium) { premium = it; if (it) showPremium = true }
-                }
-            }
 
-            Spacer(Modifier.weight(1f))
+                // Room tag
+                GlassPanel(if (live == LiveType.Video) "Category" else "Room tag") {
+                    tags.chunked(3).forEach { row ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { t ->
+                                val i = tags.indexOf(t)
+                                Box(
+                                    Modifier.weight(1f).height(38.dp).clip(CircleShape)
+                                        .then(if (i == tag) Modifier.background(Brush.horizontalGradient(listOf(Color(0xFFFF4FB8), Color(0xFF39C5FF)))) else Modifier.background(Color.White.copy(alpha = 0.12f)))
+                                        .clickable { tag = i },
+                                    contentAlignment = Alignment.Center
+                                ) { FitText(t, MaterialTheme.typography.labelLarge, color = Color.White, minSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp)) }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
 
-            // Tools
-            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                ToolButton(Icons.Rounded.FaceRetouchingNatural, "Beauty") { showBeauty = true }
-                ToolButton(Icons.Rounded.AutoAwesome, "Filters") { showBeauty = true }
-                ToolButton(Icons.Rounded.Flag, "Goal") {}
-                ToolButton(Icons.Rounded.Share, "Share") {}
-            }
-            Spacer(Modifier.height(18.dp))
-            Box(Modifier.padding(horizontal = 24.dp)) {
-                PrimaryButton("Go Live", onClick = { countdown = 3 }, leadingIcon = Icons.Rounded.Videocam)
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LiveType.entries.forEachIndexed { i, t ->
+                // Room skin (party modes)
+                if (live != LiveType.Video) {
+                    GlassPanel("Room skin") {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(roomSkins, key = { it.id }) { s ->
+                                SkinThumb(s, selected = s.id == trySkin, owned = s.id in RoomSkinState.owned) { trySkin = s.id }
+                            }
+                        }
+                    }
+                }
+
+                // Camera tools (video modes)
+                if (live != LiveType.Audio) {
+                    GlassPanel("Camera") {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            SetupTool(Icons.Rounded.FaceRetouchingNatural, "Beauty", Color(0xFFFF5FA2)) { beautyTab = 0 }
+                            SetupTool(Icons.Rounded.AutoAwesome, "Filter", Color(0xFFB45CFF)) { beautyTab = 1 }
+                            SetupTool(Icons.Rounded.Mood, "Mask", Color(0xFFFFA63D)) { beautyTab = 2 }
+                            SetupTool(Icons.Rounded.Wallpaper, "Background", Color(0xFF3DB8FF)) { beautyTab = 3 }
+                        }
+                    }
+                }
+                if (live == LiveType.Video) {
                     Row(
-                        Modifier.clip(CircleShape).then(if (i == type) Modifier.background(Color.White) else Modifier).clickable { type = i }.padding(horizontal = 14.dp, vertical = 8.dp),
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.10f)).clickable { showPremium = true }.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(t.icon, null, tint = if (i == type) Ink else Color.White, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(t.label, style = MaterialTheme.typography.labelMedium, color = if (i == type) Ink else Color.White)
+                        IconTile3D(Icons.Rounded.Key, Gold, size = 36.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Premium broadcast", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            Text(if (premium) "Ticket: ${fee.grouped()} coins" else "Charge an entry ticket", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                        }
+                        IshqSwitch(premium) { premium = it; if (it) showPremium = true }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+
+            // Go live + official talent
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.weight(1f).height(56.dp)
+                        .shadow(14.dp, CircleShape, ambientColor = Color(0xFFFF4FB8), spotColor = Color(0xFF39C5FF))
+                        .clip(CircleShape)
+                        .background(Brush.horizontalGradient(listOf(Color(0xFFFF4FB8), Color(0xFFB45CFF), Color(0xFF39C5FF))))
+                        .drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent)) }
+                        .clickable { start() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(live.icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Go Live", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    Modifier.size(width = 96.dp, height = 56.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
+                        .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape).clickable { nav.push(Screen.OfficialTalent) },
+                    contentAlignment = Alignment.Center
+                ) { Text("Official\nTalent", style = MaterialTheme.typography.labelLarge, color = Color.White, textAlign = TextAlign.Center) }
+            }
+
+            // Mode tabs
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                LiveType.entries.forEachIndexed { i, t ->
+                    val on = i == type
+                    Column(
+                        Modifier.clip(RoundedCornerShape(12.dp)).clickable { type = i; tag = 0 }.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            t.label,
+                            style = if (on) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleSmall,
+                            color = if (on) Color.White else Color.White.copy(alpha = 0.6f)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.width(if (on) 20.dp else 0.dp).height(3.dp).clip(CircleShape).background(Brush.horizontalGradient(listOf(Color(0xFFFF4FB8), Color(0xFF39C5FF)))))
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
         }
 
         if (countdown > 0) {
@@ -179,8 +269,86 @@ fun GoLiveSetupScreen(onBack: () -> Unit) {
         }
     }
 
-    if (showBeauty) BeautyPanel { showBeauty = false }
+    beautyTab?.let { BeautyPanel(it) { beautyTab = null } }
     if (showPremium) PremiumSettingsSheet(premium, fee, onDismiss = { showPremium = false }, onSave = { on, f -> premium = on; fee = f; showPremium = false })
+    buySkin?.let { s ->
+        IshqSheet(onDismiss = { buySkin = null }, title = s.name, dark = true) {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SkinBackdrop(s, Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(18.dp)))
+                Spacer(Modifier.height(12.dp))
+                Text("Use this skin in your rooms for 7 days. Everyone in the room sees it.", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+                Spacer(Modifier.height(16.dp))
+                PrimaryButton("Buy · ${s.coinsPerWeek.grouped()} coins / week", onClick = {
+                    if (DemoWallet.coins < s.coinsPerWeek) { buySkin = null; toast("Not enough coins"); nav.push(Screen.CoinStore) }
+                    else { DemoWallet.coins -= s.coinsPerWeek; RoomSkinState.owned.add(s.id); RoomSkinState.selected = s.id; buySkin = null; countdown = 3 }
+                })
+                TextButton(onClick = { trySkin = 0; RoomSkinState.selected = 0; buySkin = null; countdown = 3 }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Go live with the free skin", color = Color.White.copy(alpha = 0.8f))
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassPanel(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFF2A1450).copy(alpha = 0.55f), Color(0xFF120A2E).copy(alpha = 0.55f))))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+            .padding(14.dp)
+    ) {
+        if (title != null) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.72f))
+            Spacer(Modifier.height(10.dp))
+        }
+        content()
+    }
+}
+
+@Composable
+private fun ShareToggle(icon: androidx.compose.ui.graphics.vector.ImageVector, on: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(34.dp).clip(CircleShape).background(if (on) Color.White else Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Icon(icon, null, tint = if (on) BrandPink else Color.White, modifier = Modifier.size(18.dp)) }
+}
+
+@Composable
+private fun SetupTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(70.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 4.dp)) {
+        IconTile3D(icon, color, size = 46.dp, glyph = 24.dp)
+        Spacer(Modifier.height(6.dp))
+        FitText(label, MaterialTheme.typography.labelMedium, color = Color.White, minSize = 9.sp)
+    }
+}
+
+@Composable
+private fun SkinThumb(s: RoomSkin, selected: Boolean, owned: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        Modifier.size(width = 96.dp, height = 128.dp).clip(shape)
+            .then(if (selected) Modifier.border(2.5.dp, Brush.linearGradient(listOf(Color(0xFFFF4FB8), Color(0xFF39C5FF))), shape) else Modifier)
+            .clickable(onClick = onClick)
+    ) {
+        SkinBackdrop(s, Modifier.fillMaxSize(), animated = false)
+        Text(
+            if (selected) "Using" else "Try", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White,
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.35f)).padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+        Row(
+            Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))).padding(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (s.free || owned) FitText(if (s.free) "Free" else "Owned", MaterialTheme.typography.labelMedium, color = Color.White)
+            else {
+                CoinIcon(12.dp)
+                Spacer(Modifier.width(3.dp))
+                FitText("${s.coinsPerWeek.grouped()}/week", MaterialTheme.typography.labelSmall, color = Color.White, minSize = 8.sp)
+            }
+        }
+    }
 }
 
 @Composable
@@ -195,8 +363,8 @@ private fun ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 /* ============================== 22 · AR filters & beauty ============================== */
 
 @Composable
-private fun BeautyPanel(onDismiss: () -> Unit) {
-    var tab by remember { mutableIntStateOf(0) }
+private fun BeautyPanel(initialTab: Int = 0, onDismiss: () -> Unit) {
+    var tab by remember { mutableIntStateOf(initialTab) }
     val sliders = remember { mutableStateMapOf("Smooth" to 0.6f, "Brighten" to 0.4f, "Slim face" to 0.2f, "Big eyes" to 0.1f) }
     var filter by remember { mutableIntStateOf(0) }
     IshqSheet(onDismiss, dark = true) {

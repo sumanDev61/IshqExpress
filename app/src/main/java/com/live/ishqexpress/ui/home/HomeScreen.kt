@@ -1,5 +1,15 @@
 package com.live.ishqexpress.ui.home
 
+import com.live.ishqexpress.ui.theme.BrandViolet
+import com.live.ishqexpress.ui.common.IshqSheet
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.CheckCircle
 import com.live.ishqexpress.ui.theme.appBackground
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -114,6 +124,8 @@ fun HomeScreen() {
         }
     }
 
+    var region by rememberSaveable { mutableIntStateOf(0) }
+    var showRegions by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -124,18 +136,56 @@ fun HomeScreen() {
         val pager = rememberPagerState { FeedTab.entries.size }
         FeedTabs(selected = pager.currentPage, onSelect = { scope.launch { pager.animateScrollToPage(it) } })
         HorizontalDivider(color = Hairline, thickness = 0.5.dp)
-        HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
-            FeedPage(
-                FeedTab.entries[page],
-                onCreator = { nav.push(Screen.LiveViewer, it.id) },
-                onPromo = { i ->
-                    when (i) {
-                        0 -> nav.push(Screen.News)
-                        1 -> nav.push(Screen.GoLiveSetup)
-                        else -> nav.push(Screen.DailyRewards)
+        Box(Modifier.fillMaxSize()) {
+            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
+                FeedPage(
+                    FeedTab.entries[page],
+                    region = region,
+                    onRegion = { showRegions = true },
+                    onCreator = { nav.push(Screen.LiveViewer, it.id) },
+                    onPromo = { i ->
+                        when (i) {
+                            0 -> nav.push(Screen.News)
+                            1 -> nav.push(Screen.GoLiveSetup)
+                            else -> nav.push(Screen.DailyRewards)
+                        }
+                    },
+                    onMidPromo = { i ->
+                        when (i) {
+                            0 -> nav.push(Screen.LiveViewer, sampleCreators.first { it.mode == LiveMode.Pk }.id)
+                            1 -> nav.push(Screen.Leaderboards)
+                            else -> nav.push(Screen.Agency)
+                        }
                     }
+                )
+            }
+            // Followed creators who are live, as a floating pile (not on the Following tab, which lists them).
+            val followedLive = remember { sampleCreators.filter { it.verified } }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = pager.currentPage != FeedTab.Following.ordinal && followedLive.isNotEmpty(),
+                enter = androidx.compose.animation.slideInHorizontally { it } + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutHorizontally { it } + androidx.compose.animation.fadeOut(),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 14.dp)
+            ) {
+                FollowLivePile(followedLive) { nav.push(Screen.LiveViewer, followedLive.first().id) }
+            }
+        }
+    }
+
+    if (showRegions) {
+        IshqSheet(onDismiss = { showRegions = false }, title = "Show lives from") {
+            feedRegions.forEachIndexed { i, (flag, name) ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { region = i; showRegions = false }.padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(flag, fontSize = 22.sp)
+                    Spacer(Modifier.width(14.dp))
+                    Text(name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                    if (i == region) Icon(Icons.Rounded.CheckCircle, null, tint = BrandPink)
                 }
-            )
+            }
+            Spacer(Modifier.height(12.dp))
         }
     }
 }
@@ -243,7 +293,14 @@ private fun FeedTabs(selected: Int, onSelect: (Int) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FeedPage(tab: FeedTab, onCreator: (LiveCreator) -> Unit, onPromo: (Int) -> Unit) {
+private fun FeedPage(
+    tab: FeedTab,
+    region: Int,
+    onRegion: () -> Unit,
+    onCreator: (LiveCreator) -> Unit,
+    onPromo: (Int) -> Unit,
+    onMidPromo: (Int) -> Unit,
+) {
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(refreshing) { if (refreshing) { delay(1200); refreshing = false } }
 
@@ -266,15 +323,19 @@ private fun FeedPage(tab: FeedTab, onCreator: (LiveCreator) -> Unit, onPromo: (I
         ) {
             when (tab) {
                 FeedTab.ForYou -> {
-                    fullSpan { LiveNowRail(sampleCreators.filter { it.verified }, onCreator) }
-                    fullSpan { PromoCarousel(onPromo) }
-                    fullSpan { SectionTitle("Trending now", "🔥") }
+                    fullSpan { PromoCarousel(samplePromos, onPromo) }
+                    fullSpan { GlobalHeader(region, onRegion) }
                 }
                 FeedTab.Following -> fullSpan { FollowingHeader(creators.size) }
-                FeedTab.Popular -> fullSpan { SectionTitle("Top live this hour", "👑") }
+                FeedTab.Popular -> {
+                    fullSpan { GlobalHeader(region, onRegion) }
+                    fullSpan { SectionTitle("Top live this hour", "👑", action = null) }
+                }
                 FeedTab.Nearby -> fullSpan { NearbyHeader() }
             }
-            itemsIndexed(creators, key = { _, c -> "${tab.name}-${c.id}" }) { index, creator ->
+            // The second poster slider sits after the first two rows, so it shows once you scroll a little.
+            val midAt = if (tab == FeedTab.ForYou && creators.size > 4) 4 else -1
+            fun tile(index: Int, creator: LiveCreator) = item(key = "${tab.name}-${creator.id}") {
                 LiveTile(
                     creator = creator,
                     rank = if (tab == FeedTab.Popular && index < 3) index + 1 else null,
@@ -282,6 +343,12 @@ private fun FeedPage(tab: FeedTab, onCreator: (LiveCreator) -> Unit, onPromo: (I
                     onClick = { onCreator(creator) }
                 )
             }
+            creators.forEachIndexed { index, creator ->
+                if (index == midAt) fullSpan { PromoCarousel(sampleMidPromos, onMidPromo) }
+                tile(index, creator)
+            }
+            // Room so the last row is not hidden behind the floating follow pile.
+            fullSpan { Spacer(Modifier.height(64.dp)) }
         }
     }
 }
@@ -302,74 +369,18 @@ private fun SectionTitle(title: String, emoji: String, action: String? = "See al
     }
 }
 
-/* Story-style rail of followed creators who are live */
 @Composable
-private fun LiveNowRail(creators: List<LiveCreator>, onCreator: (LiveCreator) -> Unit) {
-    Column {
-        Text("Live from people you follow", style = MaterialTheme.typography.titleSmall, color = InkSecondary)
-        Spacer(Modifier.height(12.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(creators, key = { it.id }) { c ->
-                Column(
-                    Modifier
-                        .width(68.dp)
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCreator(c) },
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(contentAlignment = Alignment.BottomCenter) {
-                        Box(
-                            Modifier
-                                .size(66.dp)
-                                .clip(CircleShape)
-                                .background(BrandBrush.deep)
-                                .padding(2.5.dp)
-                                .clip(CircleShape)
-                                .background(Canvas)
-                                .padding(2.5.dp)
-                                .clip(CircleShape)
-                                .background(Brush.linearGradient(c.tint))
-                        ) {
-                            AsyncImage(c.imageUrl, c.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        }
-                        Text(
-                            "LIVE",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
-                            color = Color.White,
-                            modifier = Modifier
-                                .offset(y = 6.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(BrandBrush.primary)
-                                .border(1.5.dp, Canvas, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        c.name.substringBefore(' '),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Ink,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-    }
-}
-
-@Composable
-private fun PromoCarousel(onPromo: (Int) -> Unit) {
-    val pager = rememberPagerState { samplePromos.size }
+private fun PromoCarousel(promos: List<Promo>, onPromo: (Int) -> Unit) {
+    val pager = rememberPagerState { promos.size }
     LaunchedEffect(pager) {
         while (true) {
             delay(4000)
-            pager.animateScrollToPage((pager.currentPage + 1) % samplePromos.size)
+            pager.animateScrollToPage((pager.currentPage + 1) % promos.size)
         }
     }
     Column {
         HorizontalPager(pager, pageSpacing = 10.dp) { i ->
-            val p = samplePromos[i]
+            val p = promos[i]
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -404,7 +415,7 @@ private fun PromoCarousel(onPromo: (Int) -> Unit) {
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            repeat(samplePromos.size) { i ->
+            repeat(promos.size) { i ->
                 val active = pager.currentPage == i
                 val w by animateDpAsState(if (active) 16.dp else 6.dp, label = "dot")
                 Box(
@@ -613,4 +624,99 @@ private fun LiveDot(size: Int = 8, color: Color = LiveRed) {
             .clip(CircleShape)
             .background(color)
     )
+}
+
+/* ------------------------------ Global header ------------------------------ */
+
+/** "🌏 Global" bar under the banner; the filter icon picks which region's lives the feed shows. */
+@Composable
+private fun GlobalHeader(region: Int, onFilter: () -> Unit) {
+    val (flag, name) = feedRegions[region]
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = BrandViolet.copy(alpha = 0.12f), spotColor = BrandViolet.copy(alpha = 0.18f))
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.horizontalGradient(listOf(Color.White, Color(0xFFFFF3F9), Color(0xFFF6EEFF))))
+            .clickable(onClick = onFilter)
+            .padding(start = 12.dp, end = 8.dp, top = 9.dp, bottom = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(flag, fontSize = 20.sp)
+        Spacer(Modifier.width(8.dp))
+        Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, brush = BrandBrush.text), modifier = Modifier.weight(1f))
+        Text("${sampleCreators.size} live", style = MaterialTheme.typography.labelMedium, color = InkTertiary)
+        Spacer(Modifier.width(6.dp))
+        Box(Modifier.size(34.dp).clip(CircleShape).background(PinkTint), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.FilterList, "Filter region", tint = BrandPink, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/* ------------------------------ Follow pile ------------------------------ */
+
+/**
+ * Floating card, bottom-right: a fanned pile of the followed creators who are live, a live
+ * equaliser and the count. Tapping it opens the first of those lives.
+ */
+@Composable
+private fun FollowLivePile(creators: List<LiveCreator>, onClick: () -> Unit) {
+    val t = rememberInfiniteTransition(label = "pile")
+    val bob by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1_600), RepeatMode.Reverse), label = "bob")
+    val shape = RoundedCornerShape(30.dp)
+    Row(
+        Modifier
+            .graphicsLayer { translationY = -3.dp.toPx() * bob }
+            .shadow(14.dp, shape, ambientColor = BrandPink.copy(alpha = 0.5f), spotColor = BrandViolet)
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Color(0xFFFF4F9A), Color(0xFFB03CE6), Color(0xFF6E3BF0))))
+            .drawWithContent {
+                drawContent()
+                drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.28f), 0.45f to Color.Transparent))
+            }
+            .clickable(onClick = onClick)
+            .padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Fanned pile of the top three
+        Box(Modifier.size(width = 58.dp, height = 46.dp)) {
+            val pile = creators.take(3)
+            pile.reversed().forEachIndexed { i, c ->
+                val depth = pile.size - 1 - i // 0 = front
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = (depth * 7).dp)
+                        .graphicsLayer { rotationZ = depth * 9f; scaleX = 1f - depth * 0.08f; scaleY = scaleX }
+                        .size(42.dp)
+                        .shadow(4.dp, RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Brush.linearGradient(c.tint))
+                        .border(2.dp, Color.White, RoundedCornerShape(12.dp))
+                ) {
+                    AsyncImage(c.imageUrl, c.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
+            }
+        }
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Text("${creators.size} follow talent", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Color.White.copy(alpha = 0.9f), maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                EqualizerBars()
+                Spacer(Modifier.width(5.dp))
+                Text("Live", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black), color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EqualizerBars() {
+    val t = rememberInfiniteTransition(label = "eq")
+    Row(Modifier.height(14.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
+        listOf(420, 300, 520).forEach { ms ->
+            val h by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(ms), RepeatMode.Reverse), label = "bar")
+            Box(Modifier.width(3.dp).fillMaxHeight(h).clip(RoundedCornerShape(2.dp)).background(Color.White))
+        }
+    }
 }
