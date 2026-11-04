@@ -461,7 +461,7 @@ fun BroadcasterScreen(audioOnly: Boolean) {
         while (true) {
             delay(1000)
             seconds++
-            viewers += (0..6).random()
+            if (com.live.ishqexpress.BuildConfig.DEBUG) viewers += (0..6).random() // fake viewer growth: debug only
         }
     }
 

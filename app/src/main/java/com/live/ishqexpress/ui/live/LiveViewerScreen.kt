@@ -48,7 +48,7 @@ import com.live.ishqexpress.ui.gifts.GiftEvent
  * 10 Swipe live viewer — every room type in one vertical pager, like Tango:
  *    Solo live · PK battle · Dual (co-host) live · Video party · Chat party
  * 11 Viewer list · 12 Mini profile · 13 Gift drawer (ui/gifts) · 14 Gift effects (ui/gifts)
- * 15 Goal bar · 16 Premium entry · 17 Private show · 19 Share · 20 Report
+ * 15 Goal bar · 16 Premium entry · 19 Share · 20 Report
  */
 
 data class MiniUser(val name: String, val img: Int, val level: Int)
@@ -57,7 +57,6 @@ private sealed interface ViewerSheet {
     data object Viewers : ViewerSheet
     data class Mini(val user: MiniUser) : ViewerSheet
     data class Gifts(val target: Int) : ViewerSheet
-    data object PrivateShow : ViewerSheet
     data object Share : ViewerSheet
     data object Report : ViewerSheet
     data object More : ViewerSheet
@@ -184,7 +183,6 @@ private fun LiveRoom(creator: LiveCreator, active: Boolean, onClose: () -> Unit)
             onGift = { sheet = ViewerSheet.Gifts(0) },
             onReport = { sheet = ViewerSheet.Report },
             onMention = { comments.add(LiveComment(Me.name, Me.level, "@${s.user.name} 👋")); sheet = null },
-            onPrivate = { sheet = ViewerSheet.PrivateShow },
         )
         is ViewerSheet.Gifts -> GiftDrawer(
             effects, targets,
@@ -197,16 +195,12 @@ private fun LiveRoom(creator: LiveCreator, active: Boolean, onClose: () -> Unit)
                 comments.add(LiveComment(Me.name, Me.level, "sent ${g.name} ×$n", gift = g.emoji))
             }
         )
-        ViewerSheet.PrivateShow -> PrivateShowSheet(creator, DemoWallet.coins, onDismiss = { sheet = null }, onRequest = {
-            sheet = null; toast("Request sent — ${creator.name.substringBefore(' ')} will accept soon"); nav.push(Screen.PrivateShow, creator.id)
-        })
         ViewerSheet.Share -> ShareSheet(creator, onDismiss = { sheet = null })
         ViewerSheet.Report -> ReportSheet(creator.name, onDismiss = { sheet = null }, onSubmit = { sheet = null; toast("Thanks — our safety team will review this") })
         ViewerSheet.More -> MoreSheet(
             creator,
             onDismiss = { sheet = null },
             onShare = { sheet = ViewerSheet.Share },
-            onPrivate = { sheet = ViewerSheet.PrivateShow },
             onReport = { sheet = ViewerSheet.Report },
             onSubscribe = { sheet = null; nav.push(Screen.OtherProfile, creator.id) },
         )
@@ -414,7 +408,7 @@ fun ViewerListSheet(creator: LiveCreator, onDismiss: () -> Unit, onUser: (Viewer
 @Composable
 fun MiniProfileSheet(
     s: MiniUser, isHost: Boolean,
-    onDismiss: () -> Unit, onProfile: () -> Unit, onGift: () -> Unit, onReport: () -> Unit, onMention: () -> Unit, onPrivate: () -> Unit,
+    onDismiss: () -> Unit, onProfile: () -> Unit, onGift: () -> Unit, onReport: () -> Unit, onMention: () -> Unit,
 ) {
     var followed by remember { mutableStateOf(false) }
     IshqSheet(onDismiss) {
@@ -444,61 +438,11 @@ fun MiniProfileSheet(
                 SmallOutlineButton("Gift", onGift, Modifier.weight(1f), icon = Icons.Rounded.CardGiftcard, height = 44.dp)
                 SmallOutlineButton("Profile", onProfile, Modifier.weight(1f), height = 44.dp)
             }
-            if (isHost) {
-                Spacer(Modifier.height(10.dp))
-                SmallOutlineButton("Request private show", onPrivate, Modifier.fillMaxWidth(), icon = Icons.Rounded.Lock, height = 44.dp, color = BrandPink)
-            }
         }
     }
 }
 
 
-/* ------------------------------ 17 · Private show request ------------------------------ */
-
-@Composable
-fun PrivateShowSheet(creator: LiveCreator, coins: Int, onDismiss: () -> Unit, onRequest: () -> Unit) {
-    data class Option(val label: String, val sub: String, val coins: Int)
-    val options = listOf(
-        Option("Per minute", "Pay as you go · stop anytime", 40),
-        Option("15 minutes", "Fixed block", 400),
-        Option("30 minutes", "Fixed block · best value", 700),
-    )
-    var sel by remember { mutableIntStateOf(1) }
-    IshqSheet(onDismiss, title = "Private show") {
-        Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(creator.imageUrl, 48.dp, live = true)
-            Spacer(Modifier.width(12.dp))
-            Column {
-                NameRow(creator.name, creator.verified)
-                Text("1-to-1 video · only you and ${creator.name.substringBefore(' ')}", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        options.forEachIndexed { i, o ->
-            Row(
-                Modifier.padding(horizontal = 20.dp, vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                    .background(if (sel == i) PinkTint else Canvas)
-                    .border(if (sel == i) 1.5.dp else 1.dp, if (sel == i) BrandPink else Hairline, RoundedCornerShape(16.dp))
-                    .clickable { sel = i }.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(sel == i, { sel = i }, colors = RadioButtonDefaults.colors(selectedColor = BrandPink))
-                Column(Modifier.weight(1f)) {
-                    Text(o.label, style = MaterialTheme.typography.titleSmall, color = Ink)
-                    Text(o.sub, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
-                }
-                CoinAmount(o.coins, style = MaterialTheme.typography.titleSmall)
-                if (i == 0) Text("/min", style = MaterialTheme.typography.bodySmall, color = InkTertiary)
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text("Coins are held when the creator accepts and refunded if the show ends early.", style = MaterialTheme.typography.bodySmall, color = InkTertiary, modifier = Modifier.padding(horizontal = 20.dp))
-        Spacer(Modifier.height(14.dp))
-        Box(Modifier.padding(horizontal = 20.dp)) {
-            PrimaryButton(if (options[sel].coins > coins) "Not enough coins" else "Send request", onClick = onRequest, enabled = options[sel].coins <= coins, leadingIcon = Icons.Rounded.Lock)
-        }
-    }
-}
 
 
 /* ------------------------------ 19 · Share ------------------------------ */
@@ -584,12 +528,11 @@ fun ReportSheet(target: String, onDismiss: () -> Unit, onSubmit: () -> Unit) {
 /* ------------------------------ More menu ------------------------------ */
 
 @Composable
-private fun MoreSheet(creator: LiveCreator, onDismiss: () -> Unit, onShare: () -> Unit, onPrivate: () -> Unit, onReport: () -> Unit, onSubscribe: () -> Unit) {
+private fun MoreSheet(creator: LiveCreator, onDismiss: () -> Unit, onShare: () -> Unit, onReport: () -> Unit, onSubscribe: () -> Unit) {
     var clean by remember { mutableStateOf(false) }
     var translate by remember { mutableStateOf(true) }
     IshqSheet(onDismiss) {
         MenuRow(Icons.Rounded.Star, "Become a fan", subtitle = "From 499 coins / month", onClick = onSubscribe)
-        MenuRow(Icons.Rounded.Lock, "Request private show", onClick = onPrivate)
         MenuRow(Icons.Rounded.Share, "Share", onClick = onShare)
         ToggleRow(Icons.Rounded.Translate, "Auto-translate chat", translate, { translate = it })
         ToggleRow(Icons.Rounded.VisibilityOff, "Clean screen", clean, { clean = it }, subtitle = "Hide chat and gift effects")

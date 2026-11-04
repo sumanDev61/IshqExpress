@@ -39,15 +39,13 @@ object Me {
 
 /* ---------- Gifts (13, 14) ---------- */
 
-/** Drawer tabs, Tango-style. Bag holds free gifts (e.g. lucky-gift winnings). */
-enum class GiftTab(val label: String) { Popular("Popular"), Lucky("Lucky"), Motion("Motion"), Ar("AR"), Exclusive("VIP"), Bag("Bag") }
+/** Drawer tabs. Bag holds free gifts earned from events and daily rewards. */
+enum class GiftTab(val label: String) { Popular("Popular"), Motion("Motion"), Ar("AR"), Exclusive("VIP"), Bag("Bag") }
 
 /** How a gift plays on screen. */
 enum class GiftKind {
     /** Side banner with combo counter. */
     Classic,
-    /** Classic banner + a random luck multiplier for the sender. */
-    Lucky,
     /** Full-screen motion effect (transparent video when an asset exists, else a drawn animation). */
     Motion,
     /** Effect anchored to the host's face. */
@@ -85,11 +83,8 @@ val sampleGifts = listOf(
     Gift(16, "🎉", "Party popper", 29, GiftTab.Popular),
     Gift(19, "⚡", "PK Booster", 199, GiftTab.Popular, pkBoost = true),
 
-    Gift(10, "🍀", "Lucky clover", 9, GiftTab.Lucky, GiftKind.Lucky),
-    Gift(11, "🎲", "Lucky dice", 19, GiftTab.Lucky, GiftKind.Lucky),
-    Gift(12, "🧧", "Red packet", 99, GiftTab.Lucky, GiftKind.Lucky),
-    Gift(20, "🪙", "Gold coin", 49, GiftTab.Lucky, GiftKind.Lucky),
-    Gift(21, "🐱", "Lucky cat", 199, GiftTab.Lucky, GiftKind.Lucky),
+    Gift(10, "🍀", "Clover", 9, GiftTab.Popular),
+    Gift(20, "🪙", "Gold coin", 49, GiftTab.Popular),
 
     Gift(22, "💗", "Love storm", 699, GiftTab.Motion, GiftKind.Motion, MotionStyle.Hearts, video = "gifts/love_storm.mp4"),
     Gift(23, "🌀", "Galaxy portal", 1_499, GiftTab.Motion, GiftKind.Motion, MotionStyle.Portal, video = "gifts/galaxy_portal.mp4"),
@@ -123,24 +118,6 @@ object DemoWallet {
     var coins by mutableIntStateOf(Me.coins)
     /** giftId → count of free gifts in the Bag. */
     val bag = mutableStateMapOf(1 to 30, 2 to 6, 4 to 1)
-}
-
-/**
- * Lucky-gift odds. Expected return is below 1 and wins are paid as free Roses into the Bag,
- * not coins — coin-in/coin-out would make this a real-money game (see the research doc).
- */
-object LuckyDraw {
-    /** (multiplier, probability). Remaining probability = no win. */
-    val table = listOf(500 to 0.0001, 100 to 0.001, 50 to 0.003, 10 to 0.015, 5 to 0.03, 2 to 0.06, 1 to 0.10)
-
-    /** [roll] in [0, 1). Returns 0 for no win. */
-    fun multiplier(roll: Double): Int {
-        var acc = 0.0
-        for ((m, p) in table) { acc += p; if (roll < acc) return m }
-        return 0
-    }
-
-    val expectedReturn: Double get() = table.sumOf { (m, p) -> m * p }
 }
 
 /* ---------- Live chat ---------- */
@@ -302,7 +279,7 @@ val sampleMessages = listOf(
     Message(false, "See you at the live tonight 😊", "9:41"),
 )
 
-data class MediaPack(val title: String, val count: Int, val cover: Int, val price: Int, val photos: List<String> = emptyList()) {
+data class MediaPack(val title: String, val count: Int, val cover: Int, val photos: List<String> = emptyList()) {
     val coverUrl get() = photos.firstOrNull() ?: photo(cover, 400, 400)
 }
 
@@ -312,18 +289,18 @@ object MediaPackStore {
     /** conversation id → messages to append when that chat opens. */
     val outbox = androidx.compose.runtime.mutableStateMapOf<Int, List<Message>>()
     fun send(conversationId: Int, p: MediaPack) {
-        val msg = Message(true, if (p.price > 0) "🔒 ${p.title} · ${p.count} items · ${p.price} coins to unlock" else "📁 ${p.title} · ${p.count} items", "now", imageUrl = p.coverUrl)
+        val msg = Message(true, "📁 ${p.title} · ${p.count} items", "now", imageUrl = p.coverUrl)
         outbox[conversationId] = (outbox[conversationId] ?: emptyList()) + msg
     }
 }
 
 val sampleMediaPacks = listOf(
-    MediaPack("Diwali shoot", 12, 401, 199),
-    MediaPack("Studio session", 8, 402, 149),
-    MediaPack("Goa trip", 24, 403, 299),
-    MediaPack("Behind the scenes", 6, 404, 0),
-    MediaPack("Dance reels", 10, 405, 99),
-    MediaPack("Selfies", 18, 406, 0),
+    MediaPack("Diwali shoot", 12, 401),
+    MediaPack("Studio session", 8, 402),
+    MediaPack("Goa trip", 24, 403),
+    MediaPack("Behind the scenes", 6, 404),
+    MediaPack("Dance reels", 10, 405),
+    MediaPack("Selfies", 18, 406),
 )
 
 /* ---------- Money (58–66) ---------- */
@@ -350,7 +327,7 @@ val sampleTxs = listOf(
     Tx(TxType.Ticket, "Premium live · Meera Joshi", -500, "Yesterday, 9:02 PM"),
     Tx(TxType.Subscription, "Super Fan · Aanya Kapoor", -999, "1 Nov"),
     Tx(TxType.Gift, "Sports car to Aanya Kapoor", -1_999, "31 Oct"),
-    Tx(TxType.Refund, "Private show ended early", 120, "30 Oct"),
+    Tx(TxType.Refund, "Premium live ended early", 120, "30 Oct"),
     Tx(TxType.Purchase, "Bought 1,400 + 210 coins", 1_610, "28 Oct"),
 )
 
@@ -389,7 +366,7 @@ data class SubTier(val name: String, val coins: Int, val perks: List<String>, va
 val fanTiers = listOf(
     SubTier("Fan", 499, listOf("Fan badge in chat", "Fan-only posts", "Priority in live chat"), listOf(Color(0xFFFF8CB8), Color(0xFFFF2E8B))),
     SubTier("Super Fan", 999, listOf("Everything in Fan", "Free entry to premium lives", "Exclusive emojis", "Monthly shout-out"), listOf(Color(0xFFC236D9), Color(0xFF7A2BE8))),
-    SubTier("Exclusive Fan", 4_999, listOf("Everything in Super Fan", "1 private show per month", "Direct chat priority", "Name in creator's profile"), listOf(Color(0xFF7A2BE8), Color(0xFF2A0B4A))),
+    SubTier("Exclusive Fan", 4_999, listOf("Everything in Super Fan", "Exclusive fan-only lives", "Direct chat priority", "Name in creator's profile"), listOf(Color(0xFF7A2BE8), Color(0xFF2A0B4A))),
 )
 
 data class LeaderEntry(val creator: Int, val score: Int)

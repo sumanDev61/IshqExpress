@@ -64,7 +64,7 @@ fun CoinStoreScreen(onBack: () -> Unit) {
                             AnimatedContent(DemoWallet.coins, label = "bal") { Text(it.grouped(), style = MaterialTheme.typography.displaySmall, color = Color.White) }
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text("Coins are used for gifts, tickets, private shows and subscriptions.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
+                        Text("Coins are used for gifts, tickets and subscriptions.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
                     }
                 }
             }
@@ -74,7 +74,7 @@ fun CoinStoreScreen(onBack: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text("First purchase bonus", style = MaterialTheme.typography.titleSmall, color = Ink)
-                        Text("Double coins on the ₹449 pack · ends in 23:41:08", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                        Text("Double coins on the 350-coin pack", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                     }
                 }
             }
@@ -85,17 +85,6 @@ fun CoinStoreScreen(onBack: () -> Unit) {
                             row.forEach { p -> PackTile(p, firstPurchase, Modifier.weight(1f)) { checkout = p } }
                         }
                     }
-                }
-            }
-            item {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, Hairline, RoundedCornerShape(16.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Language, null, tint = BattleBlue)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Get 20% more coins on the web", style = MaterialTheme.typography.titleSmall, color = Ink)
-                        Text("ishq.express/coins · same account", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
-                    }
-                    Icon(Icons.Rounded.OpenInNew, null, tint = InkTertiary)
                 }
             }
             item {
@@ -140,7 +129,7 @@ private fun PackTile(p: CoinPack, firstPurchase: Boolean, modifier: Modifier, on
             if (p.bonus > 0 || doubled) Text(if (doubled) "×2 first purchase" else "+${p.bonus.grouped()} bonus", style = MaterialTheme.typography.labelMedium, color = BrandPink)
             else Text(" ", style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(10.dp))
-            Text(p.price, style = MaterialTheme.typography.labelLarge, color = Color.White, modifier = Modifier.shadow(8.dp, CircleShape, spotColor = BrandPink).clip(CircleShape).background(BrandBrush.primary)
+            Text(com.live.ishqexpress.data.PlayBilling.price(p), style = MaterialTheme.typography.labelLarge, color = Color.White, modifier = Modifier.shadow(8.dp, CircleShape, spotColor = BrandPink).clip(CircleShape).background(BrandBrush.primary)
                 .drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent)) }.padding(horizontal = 18.dp, vertical = 6.dp))
         }
         if (tag != null) Text(tag, style = MaterialTheme.typography.labelSmall, color = Color.White, modifier = Modifier.align(Alignment.TopCenter).offset(y = (-8).dp).clip(CircleShape).background(BrandBrush.deep).padding(horizontal = 8.dp, vertical = 3.dp))
@@ -149,8 +138,11 @@ private fun PackTile(p: CoinPack, firstPurchase: Boolean, modifier: Modifier, on
 
 @Composable
 private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> Unit, onPaid: (Int) -> Unit) {
-    val nav = LocalNav.current
     val toast = LocalToast.current
+    val activity = androidx.activity.compose.LocalActivity.current
+    val billing = com.live.ishqexpress.data.PlayBilling
+    val price = billing.price(p)
+    var demo by remember { mutableStateOf(false) }
     val doubled = firstPurchase && p.tag?.startsWith("First") == true
     // Coupon picked on the VIP page: percent of base coins, used up on this purchase.
     var coupon by com.live.ishqexpress.data.rememberIntPref("coupon", 0)
@@ -158,7 +150,7 @@ private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> 
     val total = (if (doubled) p.coins * 2 else p.coins) + p.bonus + couponCoins
     var state by remember { mutableIntStateOf(0) } // 0 review, 1 processing, 2 done
     LaunchedEffect(state) {
-        if (state == 1) { delay(1600); state = 2 }
+        if (state == 1 && demo) { delay(1600); state = 2 }
         if (state == 2) { delay(1200); toast("${total.grouped()} coins added"); coupon = 0; onPaid(total) }
     }
     IshqSheet(onDismiss) {
@@ -179,7 +171,7 @@ private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> 
                             Text("${total.grouped()} coins", style = MaterialTheme.typography.titleMedium, color = Ink)
                             Text("ishqexpress", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                         }
-                        Text(p.price, style = MaterialTheme.typography.titleMedium, color = Ink)
+                        Text(price, style = MaterialTheme.typography.titleMedium, color = Ink)
                     }
                     Spacer(Modifier.height(12.dp))
                     listOf("Base" to p.coins, "Bonus" to p.bonus, "First purchase" to if (doubled) p.coins else 0, "Coupon +$coupon%" to couponCoins).filter { it.second > 0 }.forEach { (l, v) ->
@@ -189,9 +181,26 @@ private fun CheckoutSheet(p: CoinPack, firstPurchase: Boolean, onDismiss: () -> 
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    MenuRow(Icons.Rounded.CreditCard, "UPI · suman@okhdfc", subtitle = "Change payment method", onClick = { nav.push(Screen.PaymentMethods) }, modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(SurfaceMuted))
+                    Text("You'll confirm and pay on the Google Play payment screen.", style = MaterialTheme.typography.bodySmall, color = InkTertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(16.dp))
-                    PrimaryButton("Buy · ${p.price}", { state = 1 })
+                    PrimaryButton("Buy · $price", {
+                        when {
+                            billing.isAvailable(p) && activity != null -> {
+                                state = 1
+                                billing.buy(activity, p) { r ->
+                                    when (r) {
+                                        is com.live.ishqexpress.data.PlayBilling.Result.Granted -> state = 2
+                                        com.live.ishqexpress.data.PlayBilling.Result.Pending -> { toast("Payment pending — coins arrive once it clears"); onDismiss() }
+                                        com.live.ishqexpress.data.PlayBilling.Result.Cancelled -> state = 0
+                                        is com.live.ishqexpress.data.PlayBilling.Result.Failed -> { toast(r.message); state = 0 }
+                                    }
+                                }
+                            }
+                            // Debug builds without Play products configured simulate the purchase.
+                            com.live.ishqexpress.BuildConfig.DEBUG -> { demo = true; state = 1 }
+                            else -> toast("Coin packs aren't available right now. Please try again later.")
+                        }
+                    })
                 }
                 1 -> {
                     Spacer(Modifier.height(30.dp))
@@ -461,7 +470,7 @@ fun EarningsScreen(onBack: () -> Unit) {
                 IshqCard(Modifier.fillMaxWidth()) {
                     Text("By source", style = MaterialTheme.typography.titleMedium, color = Ink)
                     Spacer(Modifier.height(10.dp))
-                    val sources = listOf(Triple("Live gifts", 7_420, BrandPink), Triple("Subscriptions", 2_840, BrandViolet), Triple("Private shows", 1_150, BrandOrchid), Triple("Premium tickets", 620, Gold))
+                    val sources = listOf(Triple("Live gifts", 7_420, BrandPink), Triple("Subscriptions", 2_840, BrandViolet), Triple("Fan clubs", 1_150, BrandOrchid), Triple("Premium tickets", 620, Gold))
                     val total = sources.sumOf { it.second }
                     Row(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape)) {
                         sources.forEach { (_, v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }

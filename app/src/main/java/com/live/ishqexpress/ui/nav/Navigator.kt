@@ -35,7 +35,6 @@ enum class Screen {
     VideoCall,       // 48
     GroupCall,       // 49
     IncomingCall,    // 50
-    PrivateShow,     // 51
     OtherProfile,    // 53, 56
     EditProfile,     // 54
     Follows,         // 55

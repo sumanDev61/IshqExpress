@@ -42,7 +42,7 @@ import kotlinx.coroutines.delay
 
 /*
  * 45 Chats inbox · 46 Chat thread · 47 Media Packs · 48 1-to-1 video call
- * 49 Group video call · 50 Incoming call · 51 Private show session
+ * 49 Group video call · 50 Incoming call
  */
 
 /* ============================== 45 · Chats inbox ============================== */
@@ -291,7 +291,7 @@ fun MediaPacksScreen(onBack: () -> Unit, sendTo: Int = 0) {
     }
     ScreenScaffold("Media Packs", onBack, actions = { TopAction(Icons.Rounded.Add, "New pack") { creating = true } }) {
         Text(
-            if (sendTo > 0) "Tap a pack to send it in this chat." else "Save albums once and send them in any chat — free or for coins.",
+            if (sendTo > 0) "Tap a pack to send it in this chat." else "Save albums once and share them in any chat.",
             style = MaterialTheme.typography.bodySmall, color = InkSecondary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
         )
         LazyVerticalGrid(GridCells.Fixed(2), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -304,8 +304,7 @@ fun MediaPacksScreen(onBack: () -> Unit, sendTo: Int = 0) {
                         Row(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
                             GlassPill { Icon(Icons.Rounded.PhotoLibrary, null, tint = Color.White, modifier = Modifier.size(12.dp)); Text(" ${p.count}", style = MaterialTheme.typography.labelSmall, color = Color.White) }
                         }
-                        if (p.price > 0) Row(Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape).background(Canvas).padding(horizontal = 8.dp, vertical = 4.dp)) { CoinAmount(p.price, iconSize = 12.dp) }
-                        else Text("FREE", style = MaterialTheme.typography.labelSmall, color = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape).background(Success).padding(horizontal = 8.dp, vertical = 4.dp))
+                        Text("FREE", style = MaterialTheme.typography.labelSmall, color = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape).background(Success).padding(horizontal = 8.dp, vertical = 4.dp))
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(p.title, style = MaterialTheme.typography.titleSmall, color = Ink)
@@ -329,17 +328,12 @@ fun MediaPacksScreen(onBack: () -> Unit, sendTo: Int = 0) {
     }
     if (creating) {
         var name by remember { mutableStateOf("") }
-        var price by remember { mutableIntStateOf(0) }
         var media by remember { mutableStateOf<List<String>>(emptyList()) }
         val pick = rememberMediaPicker(20) { media = (media + it).take(20) }
         IshqSheet({ creating = false }, title = "New media pack") {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 OutlinedTextField(name, { if (it.length <= 30) name = it }, Modifier.fillMaxWidth(), label = { Text("Pack name") }, singleLine = true, shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPink, unfocusedBorderColor = Hairline, focusedLabelColor = BrandPink))
-                Spacer(Modifier.height(12.dp))
-                Text("Price to unlock", style = MaterialTheme.typography.titleSmall, color = Ink)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(0, 99, 199, 499).forEach { p -> PillChip(if (p == 0) "Free" else "$p coins", price == p, { price = p }) } }
                 Spacer(Modifier.height(12.dp))
                 if (media.isEmpty()) Row(
                     Modifier.fillMaxWidth().height(90.dp).clip(RoundedCornerShape(14.dp)).border(1.5.dp, Hairline, RoundedCornerShape(14.dp)).clickable { pick() },
@@ -361,7 +355,7 @@ fun MediaPacksScreen(onBack: () -> Unit, sendTo: Int = 0) {
                 }
                 Spacer(Modifier.height(16.dp))
                 PrimaryButton("Create pack", {
-                    MediaPackStore.packs.add(0, MediaPack(name.trim(), media.size, 400 + MediaPackStore.packs.size, price, media))
+                    MediaPackStore.packs.add(0, MediaPack(name.trim(), media.size, 400 + MediaPackStore.packs.size, media))
                     creating = false; toast("Pack \"${name.trim()}\" created")
                 }, enabled = name.isNotBlank() && media.isNotEmpty())
             }
@@ -374,13 +368,6 @@ fun MediaPacksScreen(onBack: () -> Unit, sendTo: Int = 0) {
 @Composable
 fun VideoCallScreen(creatorId: Int) {
     CallSurface(creatorById(creatorId), title = null, perMinute = null)
-}
-
-/* ============================== 51 · Private show session ============================== */
-
-@Composable
-fun PrivateShowScreen(creatorId: Int) {
-    CallSurface(creatorById(creatorId), title = "Private show", perMinute = 40)
 }
 
 @Composable
@@ -478,7 +465,7 @@ private fun CallSurface(c: LiveCreator, title: String?, perMinute: Int?) {
         )
     }
 
-    if (showExtend && perMinute != null) IshqSheet({ showExtend = false }, title = "Extend private show") {
+    if (showExtend && perMinute != null) IshqSheet({ showExtend = false }, title = "Extend call") {
         listOf(5 to 200, 15 to 550, 30 to 1_000).forEach { (min, coins) ->
             MenuRow(Icons.Rounded.MoreTime, "+$min minutes", trailing = { CoinAmount(coins, style = MaterialTheme.typography.titleSmall) }, onClick = {
                 blockLeft += min * 60; showExtend = false; toast("Extended by $min minutes")

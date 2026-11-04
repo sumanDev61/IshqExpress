@@ -72,7 +72,6 @@ import com.live.ishqexpress.ui.chat.ChatsScreen
 import com.live.ishqexpress.ui.chat.GroupCallScreen
 import com.live.ishqexpress.ui.chat.IncomingCallScreen
 import com.live.ishqexpress.ui.chat.MediaPacksScreen
-import com.live.ishqexpress.ui.chat.PrivateShowScreen
 import com.live.ishqexpress.ui.chat.VideoCallScreen
 import com.live.ishqexpress.ui.explore.ExploreScreen
 import com.live.ishqexpress.ui.explore.SearchScreen
@@ -142,7 +141,7 @@ import com.live.ishqexpress.ui.theme.appBackground
 /** Screens that open from the bottom (full-screen modal feel) rather than sliding in from the side. */
 private val modalScreens = setOf(
     Screen.LiveViewer, Screen.GoLiveSetup, Screen.IncomingCall, Screen.VideoCall,
-    Screen.GroupCall, Screen.PrivateShow, Screen.CreatePost, Screen.Match, Screen.VideoParty, Screen.AudioRoom,
+    Screen.GroupCall, Screen.CreatePost, Screen.Match, Screen.VideoParty, Screen.AudioRoom,
     Screen.KycCapture, Screen.Replay,
 )
 
@@ -229,7 +228,6 @@ internal fun Render(dest: Dest) {
         Screen.VideoCall -> VideoCallScreen(creatorId = dest.arg)
         Screen.GroupCall -> GroupCallScreen()
         Screen.IncomingCall -> IncomingCallScreen(creatorId = dest.arg)
-        Screen.PrivateShow -> PrivateShowScreen(creatorId = dest.arg)
         Screen.OtherProfile -> OtherProfileScreen(creatorId = dest.arg, onBack = back)
         Screen.EditProfile -> EditProfileScreen(back)
         Screen.Follows -> FollowsScreen(startTab = dest.arg, onBack = back)

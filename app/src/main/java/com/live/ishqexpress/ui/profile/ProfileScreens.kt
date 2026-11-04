@@ -336,7 +336,6 @@ fun OtherProfileScreen(creatorId: Int, onBack: () -> Unit) {
     if (showTiers) FanTierSheet(c) { showTiers = false }
     if (showMenu) IshqSheet({ showMenu = false }) {
         MenuRow(Icons.Rounded.Share, "Share profile", onClick = { showMenu = false; shareText(ctx, "Check out ${c.name} on ishqexpress ${AppLinks.profile(c.id)}") })
-        MenuRow(Icons.Rounded.Lock, "Request private show", onClick = { showMenu = false; nav.push(Screen.PrivateShow, c.id) })
         MenuRow(Icons.Rounded.NotificationsActive, "Live notifications", trailing = { IshqSwitch(true) {} })
         MenuRow(Icons.Rounded.Block, "Block", iconTint = LiveRed, iconBg = LiveRed.copy(alpha = 0.1f), onClick = { showMenu = false; com.live.ishqexpress.data.Session.block(c.id); toast("${c.name} blocked"); onBack() })
         MenuRow(Icons.Rounded.Flag, "Report", iconTint = LiveRed, iconBg = LiveRed.copy(alpha = 0.1f), onClick = { showMenu = false; showReport = true })
@@ -568,7 +567,7 @@ fun UserLevelScreen(onBack: () -> Unit) {
                 IshqCard(Modifier.fillMaxWidth()) {
                     Text("How to earn XP", style = MaterialTheme.typography.titleMedium, color = Ink)
                     Spacer(Modifier.height(8.dp))
-                    listOf("🎁" to "Send gifts — 1 coin spent = 1 XP", "⭐" to "Fan subscriptions count in full", "🎟️" to "Premium tickets and private shows").forEach { (e, t) ->
+                    listOf("🎁" to "Send gifts — 1 coin spent = 1 XP", "⭐" to "Fan subscriptions count in full", "🎟️" to "Premium live tickets").forEach { (e, t) ->
                         Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) { Text(e, fontSize = 18.sp); Spacer(Modifier.width(10.dp)); Text(t, style = MaterialTheme.typography.bodyMedium, color = Ink) }
                     }
                     Text("Your level never resets.", style = MaterialTheme.typography.bodySmall, color = InkTertiary, modifier = Modifier.padding(top = 6.dp))
@@ -687,7 +686,7 @@ fun CreatorLevelScreen(onBack: () -> Unit) {
                 Triple(2, "2K 💎 · 10 h", "Stream goals"),
                 Triple(3, "8K 💎 · 20 h", "Live Party (4 guests)"),
                 Triple(4, "15K 💎 · 30 h", "Premium broadcasts"),
-                Triple(5, "30K 💎 · 60 h", "Private shows · +2% bonus"),
+                Triple(5, "30K 💎 · 60 h", "Premium lives · +2% bonus"),
                 Triple(6, "60K 💎 · 80 h", "Explore boost · +3% bonus"),
                 Triple(7, "120K 💎 · 100 h", "Custom gift · +4% bonus"),
                 Triple(8, "250K 💎 · 120 h", "Featured banner · +5% bonus"),

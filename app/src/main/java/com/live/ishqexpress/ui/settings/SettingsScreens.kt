@@ -100,9 +100,6 @@ fun SettingsScreen(onBack: () -> Unit) {
             item { MenuRow(Icons.Rounded.Description, "Terms & privacy policy", onClick = { nav.push(Screen.Legal, 0) }) }
             item { MenuRow(Icons.Rounded.Info, "About", trailingText = "v1.0 (1)", onClick = { nav.push(Screen.About) }) }
 
-            item { Group("Testing") }
-            item { MenuRow(Icons.Rounded.PhoneCallback, "Simulate incoming call", subtitle = "Preview screen 50", onClick = { nav.push(Screen.IncomingCall, 1) }) }
-
             item { Spacer(Modifier.height(16.dp)) }
             item { MenuRow(Icons.Rounded.Logout, "Log out", iconTint = InkSecondary, iconBg = SurfaceMuted, onClick = { sheet = SettingsSheet.Logout }) }
             item { MenuRow(Icons.Rounded.DeleteForever, "Delete account", iconTint = LiveRed, iconBg = LiveRed.copy(alpha = 0.1f), onClick = { sheet = SettingsSheet.Delete }) }
@@ -258,7 +255,7 @@ private fun ColumnScope.SupportChat() {
 @Composable
 private fun Faq() {
     val faqs = listOf(
-        "How do I buy coins?" to "Open Me → Coins → Recharge, pick a pack and pay with Google Play. Coins on the web give about 20% more.",
+        "How do I buy coins?" to "Open Me → Coins → Recharge, pick a pack and pay with Google Play.",
         "What's the difference between coins and diamonds?" to "Viewers buy coins to send gifts. Creators receive diamonds — about 1 diamond for every 2 coins — and can withdraw them as money.",
         "How do I become a creator?" to "Tap the camera button and go live. To withdraw earnings you need to finish ID verification (KYC) once.",
         "When are payouts sent?" to "Withdrawal requests are processed on the 1st of each month and arrive in 3–5 business days.",
